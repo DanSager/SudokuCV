@@ -128,7 +128,16 @@ public class Vision {
     }
 
     public ArrayList<Mat> isolateBoxes(Mat image) {
+        ArrayList<Mat> boxes = new ArrayList<>();
+        List<MatOfPoint> contours = new ArrayList<>();
+        List<MatOfPoint> noise = new ArrayList<>();
+
+        List<List<MatOfPoint>> sorted_contours = new ArrayList<>();
+        List<MatOfPoint> row = new ArrayList<>();
+
         Mat original = image.clone();
+        Mat hierarchy = new Mat();
+        Mat hier = new Mat();
 
         // Make original colors, OpenCV uses BGR
         Imgproc.cvtColor(image, image, Imgproc.COLOR_BGR2RGB);
@@ -136,22 +145,33 @@ public class Vision {
         // Make black and white (grayscale)
         Imgproc.cvtColor(image, image, Imgproc.COLOR_RGB2GRAY);
 
-        Mat backup = image.clone();
-
         // adaptive threshold
         Imgproc.adaptiveThreshold(image, image, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 57, 5);
-        Imgproc.adaptiveThreshold(backup, backup, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 57, 5);
+        //Imgproc.adaptiveThreshold(backup, backup, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 57, 5);
+
+        Mat backup = image.clone();
 
         // Filter out all numbers and noise to isolate
-        List<MatOfPoint> contours = new ArrayList<>();
-        Mat hierarchy = new Mat();
         Imgproc.findContours(image, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
         Scalar black = new Scalar(0, 0, 0);
+
+        Scalar white = new Scalar(255, 255, 255);
         for (MatOfPoint contour : contours) {
             Double area = Imgproc.contourArea(contour);
             if (area < 1000) {
                 Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
             }
+            if (area < 75) {
+                noise.add(contour);
+            }
+        }
+
+        // Add back in numbers
+        //Mat backup = image.clone();
+        Mat invert = new Mat(image.rows(),image.cols(), image.type(), new Scalar(255,255,255));
+        Core.subtract(invert, backup, backup);
+        for (MatOfPoint contour : noise) {
+            Imgproc.drawContours(backup, Arrays.asList(contour), -1, white, -1);
         }
 
         // Fix horizontal and vertical lines
@@ -163,11 +183,9 @@ public class Vision {
         Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width/2, horizontal_kernel.size().height/2), 4);
 
         // Invert image
-        Mat invertcolormatrix= new Mat(image.rows(),image.cols(), image.type(), new Scalar(255,255,255));
-        Core.subtract(invertcolormatrix, image, image);
+        Core.subtract(invert, image, image);
 
         // Sort by top to bottom and each row left to right
-        Mat hier = new Mat();
         Imgproc.findContours(image, contours, hier, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
         //sort by y coordinates using the topleft point of every contour's bounding box
@@ -180,9 +198,6 @@ public class Vision {
                 return result;
             }
         } );
-
-        List<List<MatOfPoint>> sorted_contours = new ArrayList<>();
-        List<MatOfPoint> row = new ArrayList<>();
 
         int i = 0;
         for (MatOfPoint contour : contours) {
@@ -210,15 +225,13 @@ public class Vision {
                 }
             }
         }
-        
-        ArrayList<Mat> boxes = new ArrayList<Mat>();
+
         for (List<MatOfPoint> row_of_contours : sorted_contours) {
             for (MatOfPoint contour : row_of_contours) {
                 Mat og = original.clone();
                 //Mat zeroMat = Mat.zeros(image.rows(), image.cols(), CvType.CV_8UC1);
                 Mat mask = Mat.zeros(image.size(), CV_8U);
                 Mat number = Mat.zeros(image.size(), CV_8U);
-                Scalar white = new Scalar(255, 255, 255);
                 Scalar red = new Scalar(255, 0, 0);
                 Imgproc.drawContours(mask, Arrays.asList(contour), -1, white, -1);
                 Imgproc.drawContours(original, Arrays.asList(contour), -1, red,1);
@@ -229,9 +242,9 @@ public class Vision {
                 Rect ROI = Imgproc.boundingRect(contour);
                 Mat crop = backup.submat(ROI);
 
-                boxes.add(crop);
-                //boxes.add(original);
-                //original = og.clone();
+                //boxes.add(crop);
+                boxes.add(original);
+                original = og.clone();
             }
         }
 

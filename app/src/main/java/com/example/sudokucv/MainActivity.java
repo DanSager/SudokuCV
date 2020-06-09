@@ -110,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
             for (Mat image : results) {
                 Bitmap b = v.getBitMap(image);
                 publishProgress(b);
-                Log.d(TAG, v.recognizeText(b));
+                //Log.d(TAG, v.recognizeText(b));
                 SystemClock.sleep(50);
             }
             return null;
@@ -119,9 +119,8 @@ public class MainActivity extends AppCompatActivity {
         protected void onProgressUpdate(Bitmap... values) {
             Bitmap b = values[0];
 
-            ImageView view = (ImageView) findViewById(R.id.img);
+            ImageView view = findViewById(R.id.img);
             view.setImageBitmap(b);
-            Log.d(TAG, "progressupdtate");
 
             super.onProgressUpdate();
         }

@@ -1,0 +1,137 @@
+package com.example.sudokucv;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.util.Log;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+//import com.googlecode.tesseract.android.TessBaseAPI;
+
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.imgproc.Imgproc;
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
+import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
+import org.opencv.core.*;
+import org.opencv.imgcodecs.Imgcodecs; // imread, imwrite, etc
+import org.opencv.videoio.Videoio; // VideoCapture
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity {
+
+    static final String TAG = "MainActivity";
+    public static final String TESS_DATA = "tessdata";
+
+    //    static {
+//        if (OpenCVLoader.initDebug()) {
+//            Log.d(TAG, "success");
+//        } else {
+//            Log.d(TAG,"unsuccess");
+//        }
+//    }
+//
+//    // Used to load the 'native-lib' library on application startup.
+    static {
+        //System.loadLibrary("native-lib");
+        System.loadLibrary("opencv_java3");
+        //System.loadLibrary("jpgt");
+        //System.loadLibrary("pngt");
+        //System.loadLibrary("lept");
+        //System.loadLibrary("tess");
+    }
+//
+//    private static void loadLibraries() {
+//        if (OpenCVLoader.initDebug()) {
+//            Log.d(TAG, "success");
+//        } else {
+//            Log.d(TAG,"unsuccess");
+//        }
+//
+//        System.loadLibrary("native-lib");
+//        System.loadLibrary("opencv_java3");
+//        System.loadLibrary("jpgt");
+//        System.loadLibrary("pngt");
+//        System.loadLibrary("lept");
+//        System.loadLibrary("tess");
+//    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Example of a call to a native method
+        //TextView tv = findViewById(R.id.sample_text);
+        //tv.setText(stringFromJNI());
+
+        new loadTask().execute();
+    }
+
+    private void checkPermission() {
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 120);
+        }
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 121);
+        }
+    }
+
+    private class loadTask extends AsyncTask<Void, Bitmap, Void> {
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            checkPermission();
+            //prepareFiles("",TESS_DATA);
+            Vision v = new Vision();
+            v.create(getBaseContext());
+            ArrayList<Mat> images = v.aquireImages();
+            Mat img = images.get(2);
+            ArrayList<Mat> results = v.isolateBoxes(img);
+            for (Mat image : results) {
+                Bitmap b = v.getBitMap(image);
+                publishProgress(b);
+                Log.d(TAG, v.recognizeText(b));
+                SystemClock.sleep(50);
+            }
+            return null;
+        }
+
+        protected void onProgressUpdate(Bitmap... values) {
+            Bitmap b = values[0];
+
+            ImageView view = (ImageView) findViewById(R.id.img);
+            view.setImageBitmap(b);
+            Log.d(TAG, "progressupdtate");
+
+            super.onProgressUpdate();
+        }
+    }
+
+
+
+    /**
+     * A native method that is implemented by the 'native-lib' native library,
+     * which is packaged with this application.
+     */
+    public native String stringFromJNI();
+}

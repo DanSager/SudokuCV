@@ -1,0 +1,6 @@
+include ':ocr_zs'
+include ':tess-two'
+include ':opencv'
+include ':app'
+rootProject.name = "SudokuCV"
+include ':openCVLibrary3410'

@@ -3,8 +3,10 @@ package com.example.sudokucv;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.util.Log;
+import android.util.Pair;
 import android.widget.Toast;
 
+import com.google.gson.Gson;
 import com.googlecode.tesseract.android.TessBaseAPI;
 //import com.zsmarter.*;
 
@@ -20,8 +22,11 @@ import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -34,26 +39,15 @@ import static org.opencv.core.CvType.CV_8U;
 
 public class Vision {
 
-    private boolean testing = false;
     static final String TAG = "Vision";
-    Context context;
+    private boolean testing = false;
+    Context context = null;
     final String TEST_FILES = "testfiles";
+    final String TESS_DATA = "tessdata";
+    TessBaseAPI baseApi = null;
 
     static {
-        if (OpenCVLoader.initDebug()) {
-            Log.d(TAG, "success");
-        } else {
-            Log.d(TAG,"unsuccess");
-        }
-    }
-
-    static {
-        //System.loadLibrary("native-lib");
-        System.loadLibrary("opencv_java3");
-        //System.loadLibrary("jpgt");
-        //System.loadLibrary("pngt");
-        //System.loadLibrary("lept");
-        //System.loadLibrary("tess");
+        OpenCVLoader.initDebug();
     }
 
     public int create(Context con) {
@@ -61,6 +55,10 @@ public class Vision {
         if (context.getPackageName().contains("test")) {
             testing = true;
         }
+
+        prepareFiles("", TESS_DATA);
+        prepareFiles(TEST_FILES, TEST_FILES);
+        loadTesseract();
         return 1;
     }
 
@@ -77,6 +75,11 @@ public class Vision {
                 path = path + "/";
             for(String fileName : fileList){
                 String pathToDataFile = dir + "/" + fileName;
+                File f = new File(pathToDataFile);
+                f.mkdir();
+                if (f.isDirectory())
+                    continue;
+
                 if(!(new File(pathToDataFile)).exists()){
                     InputStream in = context.getAssets().open(path + fileName);
                     OutputStream out = new FileOutputStream(pathToDataFile);
@@ -90,54 +93,74 @@ public class Vision {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
+            Log.e(TAG, "Error: prepareFiles - " + e.getMessage());
         }
     }
 
-    public Mat loadImage(String filename) {
-        Mat image = Imgcodecs.imread(filename);
-        return image;
-    }
+    public ArrayList<Triplet<Mat, List<String>, String>> getImages(int index) {
+        boolean single = (index > -1);
+        //externalDir = "/storage/emulated/0/Android/data/com.example.sudokucv/files";
+        String externalDir = context.getExternalFilesDir("/").getPath();
 
-    public ArrayList<Mat> aquireImages() {
-        if (!testing)
-            prepareFiles(TEST_FILES, TEST_FILES);
+        //ArrayList<Pair<Mat, List<String>>> images = new ArrayList<>();
+        ArrayList<Triplet<Mat, List<String>, String>> images = new ArrayList<>();
 
-        final String TESS_DATA = "tessdata";
-        prepareFiles("", TESS_DATA);
-
-        String externalDir = "";
-        //if (testing)
-            externalDir = "/storage/emulated/0/Android/data/com.example.sudokucv/files";
-        //else
-        //    externalDir = context.getExternalFilesDir("/").getPath();
-
-        String imagePath = externalDir + "/" + TEST_FILES + "/";
-        ArrayList<Mat> images = new ArrayList<Mat>();
         try {
-            File directory = new File(imagePath);
+            File directory = new File(externalDir + "/" + TEST_FILES + "/");
             File[] files = directory.listFiles();
-            for (File fileName : files) {
-                images.add(Imgcodecs.imread(fileName.getPath()));
+            for (File f : files) {
+                if (f.getName().contains(".png") || f.getName().contains(".jpg")) {
+                    Mat image = null;
+                    List<String> values = new ArrayList<>();
+
+                    String imagePath = f.getPath();
+                    String fileNamePath = imagePath.substring(0, imagePath.lastIndexOf('.'));
+                    String fileName = fileNamePath.substring(imagePath.lastIndexOf('/') + 1);
+                    String jsonPath = fileNamePath + ".json";
+
+                    if (!single || (single && f.getName().contains(Integer.toString(index))))
+                        image = Imgcodecs.imread(imagePath);
+
+                    File temp = new File(jsonPath);
+                    if(temp.exists()) {
+                        values = parse(jsonPath);
+                    }
+
+                    Triplet<Mat, List<String>, String> t = new Triplet<>(image, values, fileName);
+                    images.add(t);
+                }
             }
         } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
+            Log.e(TAG, "Error: " + e.getMessage());
         }
 
         return images;
     }
 
+    public List<String> parse(String path) {
+        String[] data = null;
+        BufferedReader reader;
+        try {
+            reader = new BufferedReader(new FileReader(path));
+            Gson gson = new Gson();
+            data = gson.fromJson(reader, String[].class);
+        } catch (FileNotFoundException ex) {
+            Log.e(TAG, ex.getMessage());
+        }
+        List l = Arrays.asList(data);
+        return l;
+    }
+
     public ArrayList<Mat> isolateBoxes(Mat image) {
         ArrayList<Mat> boxes = new ArrayList<>();
-        List<MatOfPoint> contours = new ArrayList<>();
+        List<MatOfPoint> contents = new ArrayList<>();
+        List<MatOfPoint> squares = new ArrayList<>();
         List<MatOfPoint> noise = new ArrayList<>();
 
-        List<List<MatOfPoint>> sorted_contours = new ArrayList<>();
+        List<List<MatOfPoint>> sortedSquares = new ArrayList<>();
         List<MatOfPoint> row = new ArrayList<>();
 
         Mat original = image.clone();
-        Mat hierarchy = new Mat();
-        Mat hier = new Mat();
 
         // Make original colors, OpenCV uses BGR
         Imgproc.cvtColor(image, image, Imgproc.COLOR_BGR2RGB);
@@ -152,11 +175,11 @@ public class Vision {
         Mat backup = image.clone();
 
         // Filter out all numbers and noise to isolate
-        Imgproc.findContours(image, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+        Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
         Scalar black = new Scalar(0, 0, 0);
 
         Scalar white = new Scalar(255, 255, 255);
-        for (MatOfPoint contour : contours) {
+        for (MatOfPoint contour : contents) {
             Double area = Imgproc.contourArea(contour);
             if (area < 1000) {
                 Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
@@ -185,11 +208,11 @@ public class Vision {
         // Invert image
         Core.subtract(invert, image, image);
 
-        // Sort by top to bottom and each row left to right
-        Imgproc.findContours(image, contours, hier, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+        // Find the squares
+        Imgproc.findContours(image, squares, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
         //sort by y coordinates using the topleft point of every contour's bounding box
-        Collections.sort(contours, new Comparator<MatOfPoint>() {
+        Collections.sort(squares, new Comparator<MatOfPoint>() {
             @Override
             public int compare(MatOfPoint o1, MatOfPoint o2) {
                 Rect rect1 = Imgproc.boundingRect(o1);
@@ -199,10 +222,18 @@ public class Vision {
             }
         } );
 
+        Double average = 0.0;
+        for (MatOfPoint contour : squares) {
+            average = average + Imgproc.contourArea(contour);
+        }
+        average = average / squares.size();
+        Double offset = average / 8;
+        average = average + offset;
+
         int i = 0;
-        for (MatOfPoint contour : contours) {
+        for (MatOfPoint contour : squares) {
             Double area = Imgproc.contourArea(contour);
-            if (area < 5000 && area > 1000) {
+            if (area < average && area > 1000) {
                 row.add(contour);
                 i++;
                 if (i % 9 == 0) {
@@ -212,39 +243,38 @@ public class Vision {
                         public int compare(MatOfPoint o1, MatOfPoint o2) {
                             Rect rect1 = Imgproc.boundingRect(o1);
                             Rect rect2 = Imgproc.boundingRect(o2);
-                            int result = 0;
-                            double total = rect1.tl().y/rect2.tl().y;
-                            if (total>=0.9 && total<=1.4 ){
-                                result = Double.compare(rect1.tl().x, rect2.tl().x);
-                            }
-                            return result;
+                            return Double.compare(rect1.tl().x, rect2.tl().x);
                         }
                     });
-                    sorted_contours.add(row);
+                    sortedSquares.add(row);
                     row = new ArrayList<MatOfPoint>();
                 }
+            } else {
+//                Mat mask = Mat.zeros(image.size(), CV_8U);
+//                Scalar red = new Scalar(255, 0, 0);
+//                Imgproc.drawContours(original, Arrays.asList(contour), -1, red,1);
+//                boxes.add(0,original);
+//                return boxes;
             }
         }
 
-        for (List<MatOfPoint> row_of_contours : sorted_contours) {
+        for (List<MatOfPoint> row_of_contours : sortedSquares) {
             for (MatOfPoint contour : row_of_contours) {
-                Mat og = original.clone();
-                //Mat zeroMat = Mat.zeros(image.rows(), image.cols(), CvType.CV_8UC1);
-                Mat mask = Mat.zeros(image.size(), CV_8U);
-                Mat number = Mat.zeros(image.size(), CV_8U);
-                Scalar red = new Scalar(255, 0, 0);
-                Imgproc.drawContours(mask, Arrays.asList(contour), -1, white, -1);
-                Imgproc.drawContours(original, Arrays.asList(contour), -1, red,1);
-                Mat result = new Mat();
-                Core.bitwise_and(mask, image, result);
-                //result[mask] = 0;
+                //Mat og = original.clone();
+                //Mat mask = Mat.zeros(image.size(), CV_8U);
+                //Imgproc.drawContours(mask, Arrays.asList(contour), -1, white, -1);
+
+                //Scalar red = new Scalar(255, 0, 0);
+
+                //Imgproc.drawContours(og, Arrays.asList(contour), -1, red,1);
+                //Mat result = new Mat();
+                //Core.bitwise_and(mask, image, result);
 
                 Rect ROI = Imgproc.boundingRect(contour);
                 Mat crop = backup.submat(ROI);
 
-                //boxes.add(crop);
-                boxes.add(original);
-                original = og.clone();
+                boxes.add(crop);
+                //boxes.add(og);
             }
         }
 
@@ -258,22 +288,25 @@ public class Vision {
         return img_bitmap;
     }
 
-    public String recognizeText(Bitmap bitmap) {
-        TessBaseAPI baseApi = new TessBaseAPI();
-        String dataPath = "/storage/emulated/0/Android/data/com.example.sudokucv/files/";
-        //String dataPath = context.getExternalFilesDir("/").getPath() + "/";
+    public int loadTesseract(){
+        baseApi = new TessBaseAPI();
+        String dataPath = context.getExternalFilesDir("/").getPath() + "/";
         baseApi.init(dataPath, "digits");
 
+        // Optional, test later
         //baseApi.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_LINE);
         //baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, "!?@#$%&*()<>_-+=/:;'\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
         //baseApi.setVariable(TessBaseAPI.VAR_CHAR_WHITELIST, "0123456789");
         //baseApi.setVariable("classify_bln_numeric_mode", "1");
 
+        return 0;
+    }
+
+    public String readText(Bitmap bitmap) {
         baseApi.setImage(bitmap);
-        String recognizedText = baseApi.getUTF8Text();
-        baseApi.end();
-        //return "";
-        return recognizedText;
+        String text = baseApi.getUTF8Text();
+        //baseApi.end();
+        return text;
     }
 
 }

@@ -10,52 +10,18 @@ import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.util.JsonReader;
 import android.util.Log;
-import android.util.Pair;
-import android.view.View;
 import android.widget.ImageView;
-import android.widget.Toast;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.reflect.TypeToken;
 
-//import com.googlecode.tesseract.android.TessBaseAPI;
-
-import org.json.JSONArray;
-import org.opencv.android.OpenCVLoader;
-import org.opencv.android.Utils;
-import org.opencv.imgproc.Imgproc;
-import org.opencv.android.BaseLoaderCallback;
-import org.opencv.android.CameraBridgeViewBase;
-import org.opencv.android.LoaderCallbackInterface;
-import org.opencv.android.OpenCVLoader;
-import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
-import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs; // imread, imwrite, etc
 import org.opencv.videoio.Videoio; // VideoCapture
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.Writer;
-import java.lang.reflect.Type;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -125,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
             //prepareFiles("",TESS_DATA);
             Vision v = new Vision();
             v.create(getBaseContext());
-            ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(-1);
+            ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(1);
             int i = 0;
 
             for (Triplet<Mat, List<String>, String> t : images) {
@@ -146,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
 
                     array.add(output);
 
-                    //SystemClock.sleep(200);
+                    //SystemClock.sleep(2);
                 }
 
                 Log.i(TAG, "Image " + name + " result: " + Boolean.toString(mValues.equals(array)));

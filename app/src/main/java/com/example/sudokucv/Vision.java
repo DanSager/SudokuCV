@@ -286,6 +286,7 @@ public class Vision {
 
         // Make clones
         Mat filledBoxes = image.clone(); // Holds squares with numbers and no noise
+        Mat whiteOut = new Mat(image.size(), CV_8UC3).setTo(white);
         Mat numberBorder = warpedOriginal.clone();
         Mat boxBorder = warpedOriginal.clone();
 
@@ -293,17 +294,39 @@ public class Vision {
         contents = new ArrayList<>(); // Clear old contours, ie. containing border
         Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
+        //boxes.add(imgLabel(whiteOut, "whiteout"));
+
         // Remove numbers
         for (MatOfPoint contour : contents) {
             Double area = Imgproc.contourArea(contour);
-            if (area < 15000 && area > 1250) { // Number
+            if (area < 15000 && area > 1200) { // Number
                 Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
+
+
+
+                MatOfPoint2f m2f = new MatOfPoint2f(contour.toArray());
+                RotatedRect rr = Imgproc.minAreaRect(m2f);
+                Size sz = rr.size;
+                Double dou = sz.width / 4;
+                Double dou2 = sz.height / 4;
+                rr.size = new Size(sz.width +dou, sz.height+dou2);
+                //rr.center = new Point(rr.center.x + 20, rr.center.y + 20);
+
+                Mat mask = new Mat(filledBoxes.rows(), filledBoxes.cols(), CvType.CV_8U, Scalar.all(0));
+                Imgproc.ellipse(mask, rr, white, -1);
+                filledBoxes.copyTo(whiteOut, mask);
+
                 Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, red, 2);
                 numbers.add(contour);
+                //boxes.add(imgLabel(numberBorder, "Area: " + area));
+            } else if (area > 1000 && area < 1200) {
+                Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, green, 2);
+                //boxes.add(imgLabel(numberBorder, "Area: " + area));
             }
         }
 
         //boxes.add(imgLabel(numberBorder, "Number border"));
+        //boxes.add(imgLabel(whiteOut, "whiteout"));
         //boxes.add(imgLabel(image, "post remove nums"));
 
         // Fix horizontal and vertical lines
@@ -320,6 +343,7 @@ public class Vision {
         Mat blankWrappedSize = new Mat(image.rows(),image.cols(), image.type(), new Scalar(255,255,255));
         Core.subtract(blankWrappedSize, image, image);
         Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
+        Core.subtract(blankWrappedSize, whiteOut, whiteOut);
 
         // Find the squares
         Imgproc.findContours(image, squares, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -344,9 +368,6 @@ public class Vision {
         for (MatOfPoint contour : squares) {
             row.add(contour);
             i++;
-
-
-
             if (i % 9 == 0) {
                 //sort by x coordinates
                 Collections.sort(row, new Comparator<MatOfPoint>() {
@@ -358,35 +379,28 @@ public class Vision {
                     }
                 });
                 sortedSquares.add(row);
-                row = new ArrayList<MatOfPoint>();
+                row = new ArrayList<>();
             }
         }
-
 
         Scalar alternate = red;
         for (List<MatOfPoint> row_of_contours : sortedSquares) {
             for (MatOfPoint contour : row_of_contours) {
 
-                Imgproc.drawContours(boxBorder, Arrays.asList(contour), -1, alternate, 2);
+                Imgproc.drawContours(boxBorder, Arrays.asList(contour), -1, alternate, 7);
                 if (alternate == red)
                     alternate = green;
                 else
                     alternate = red;
 
-                //Mat og = original.clone();
-                //Imgproc.drawContours(og, Arrays.asList(contour), -1, red,1);
-                //boxes.add(og);
-
-                //Mat mask = Mat.zeros(image.size(), CV_8U);
-                //Imgproc.drawContours(mask, Arrays.asList(contour), -1, white, -1);
-
-                //Mat result = new Mat();
-                //Core.bitwise_and(mask, image, result);
-
                 Rect ROI = Imgproc.boundingRect(contour);
-                Mat crop = filledBoxes.submat(ROI);
+                //Rect ro = new Rect(ROI.x+11, ROI.y+11, ROI.width-22, ROI.height-22);
+                Mat crop = whiteOut.submat(ROI);
+                Mat cro = filledBoxes.submat(ROI);
+                //Mat cro = whiteOut.submat(ro);
 
                 boxes.add(crop);
+                //boxes.add(cro);
             }
         }
 
@@ -394,6 +408,7 @@ public class Vision {
         //boxes.add(imgLabel(boxBorder, "border of squares"));
 
         // TODO increase line detection
+        // TODO try cropping the
 
         return boxes;
     }

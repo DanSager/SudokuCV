@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
             //prepareFiles("",TESS_DATA);
             Vision v = new Vision();
             v.create(getBaseContext());
-            ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(1);
+            ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(-1);
             int i = 0;
 
             for (Triplet<Mat, List<String>, String> t : images) {
@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
 
                 List<String> array = new ArrayList<>();
 
+                int j = 0;
                 for (Mat image : results) {
                     Bitmap b = v.getBitMap(image);
                     publishProgress(b);
@@ -112,20 +113,32 @@ public class MainActivity extends AppCompatActivity {
 
                     array.add(output);
 
+                    if (array.size() == 29) {
+                        Log.i(TAG,"a");
+                    }
+
+                    if (mValues.size() >= j && mValues.size() > 0) {
+                        if (!output.equals(mValues.get(j))) {
+                            Log.i(TAG, "box " + j + " is incorrect. predicted: " + output + " expected: " + mValues.get(j));
+                        }
+                    }
+                    j++;
+
                     //SystemClock.sleep(2);
                 }
 
                 Log.i(TAG, "Image " + name + " result: " + Boolean.toString(mValues.equals(array)));
 
-                //build(array, i);
+                if (mValues.size() == 0 && array.size() == 81)
+                    build(array, name);
                 i++;
             }
 
             return null;
         }
 
-        private void build(List<String> array, int i) {
-            String path = getExternalFilesDir("/").getPath() + "/" + "testfiles" + "/" + "puzzle" + Integer.toString(i) + ".json";
+        private void build(List<String> array, String name) {
+            String path = getExternalFilesDir("/").getPath() + "/" + "testfiles" + "/" + name + ".json";
             try {
                 // create a writer
                 Writer writer = new FileWriter(path);
@@ -138,6 +151,7 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 Log.e(TAG, e.getMessage());
             }
+            Log.i(TAG, "wrote new file for: " + name + ".json");
         }
 
         protected void onProgressUpdate(Bitmap... values) {

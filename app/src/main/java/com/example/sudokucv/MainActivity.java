@@ -107,22 +107,22 @@ public class MainActivity extends AppCompatActivity {
                 for (Mat image : results) {
                     Bitmap b = v.getBitMap(image);
                     publishProgress(b);
-                    String output = v.readText(b);
-                    String realpred = output + " real";
-                    if (output.equals(""))
-                        output = "0";
-
-                    array.add(output);
-
-                    if (array.size() == 46) {
-                        //Log.i(TAG,"a");
-                    }
-
-                    if (mValues.size() >= j && mValues.size() > 0) {
-                        if (!output.equals(mValues.get(j))) {
-                            Log.i(TAG, "box " + j + " is incorrect. predicted: " + output + " expected: " + mValues.get(j));
-                        }
-                    }
+//                    String output = v.readText(b);
+//                    String realpred = output + " real";
+//                    if (output.equals(""))
+//                        output = "0";
+//
+//                    array.add(output);
+//
+//                    if (array.size() == 46) {
+//                        //Log.i(TAG,"a");
+//                    }
+//
+//                    if (mValues.size() >= j && mValues.size() > 0) {
+//                        if (!output.equals(mValues.get(j))) {
+//                            Log.i(TAG, "box " + j + " is incorrect. predicted: " + output + " expected: " + mValues.get(j));
+//                        }
+//                    }
                     j++;
 
                     //SystemClock.sleep(2);

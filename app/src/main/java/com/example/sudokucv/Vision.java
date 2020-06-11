@@ -175,6 +175,7 @@ public class Vision {
         // Lists
         ArrayList<Mat> boxes = new ArrayList<>();
         List<MatOfPoint> contents = new ArrayList<>();
+        List<MatOfPoint> mostlySquares = new ArrayList<>();
         List<MatOfPoint> squares = new ArrayList<>();
         List<MatOfPoint> numbers = new ArrayList<>();
         List<MatOfPoint> noise = new ArrayList<>();
@@ -207,12 +208,13 @@ public class Vision {
 
         // Erode
         Mat erode = image.clone();
-        Imgproc.erode(erode, erode, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_CROSS, new Size(3,3)));
+        Imgproc.erode(erode, erode, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_CROSS, new Size(2,2)));
         //boxes.add(imgLabel(erode, "erode"));
         image = erode.clone();
 
         // adaptive threshold, make black or white and invert
         Imgproc.adaptiveThreshold(image, image, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 57, 3);
+        //boxes.add(imgLabel(image, "adaptive"));
 
         // Find all contours
         Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -283,8 +285,6 @@ public class Vision {
 
         // Smooth
         Imgproc.medianBlur(image, image, 3);
-        //Imgproc.medianBlur(image, image, 3);
-        //Imgproc.medianBlur(image, image, 3);
         //boxes.add(imgLabel(image, "post smooth"));
 
         // Remove noise from the rest of contours
@@ -305,7 +305,7 @@ public class Vision {
         // Remove numbers
         for (MatOfPoint contour : contents) {
             Double area = Imgproc.contourArea(contour);
-            if (area < 15000 && area > 1200) { // Number
+            if (area < 15000 && area > 1100) { // Number
                 Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
 
                 MatOfPoint2f m2f = new MatOfPoint2f(contour.toArray());
@@ -323,7 +323,7 @@ public class Vision {
                 Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, red, 2);
                 numbers.add(contour);
                 //boxes.add(imgLabel(numberBorder, "Area: " + area));
-            } else if (area > 1000 && area < 1200) {
+            } else if (area > 1000 && area < 1100) {
                 Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, green, 2);
                 //boxes.add(imgLabel(numberBorder, "Area: " + area));
             }
@@ -350,11 +350,17 @@ public class Vision {
         Core.subtract(blankWrappedSize, whiteOut, whiteOut);
 
         // Find the squares
-        Imgproc.findContours(image, squares, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+        Imgproc.findContours(image, mostlySquares, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+        for (MatOfPoint contour : mostlySquares) {
+            if (Imgproc.contourArea(contour) > 20000) {
+                squares.add(contour);
+            }
+        }
 
         if (squares.size() != 81) {
             Log.e(TAG, "Number of squares != 81");
-            return boxes;
+            //return boxes;
         }
 
         //sort by y coordinates using the topleft point of every contour's bounding box
@@ -403,13 +409,13 @@ public class Vision {
                 Mat cro = filledBoxes.submat(ROI);
                 //Mat cro = whiteOut.submat(ro);
 
-                boxes.add(crop);
+                //boxes.add(crop);
                 //boxes.add(cro);
             }
         }
 
 
-        //boxes.add(imgLabel(boxBorder, "border of squares"));
+        boxes.add(imgLabel(boxBorder, "border of squares"));
 
         // TODO increase line detection
         // TODO try cropping the

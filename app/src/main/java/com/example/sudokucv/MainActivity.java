@@ -108,13 +108,14 @@ public class MainActivity extends AppCompatActivity {
                     Bitmap b = v.getBitMap(image);
                     publishProgress(b);
                     String output = v.readText(b);
+                    String realpred = output + " real";
                     if (output.equals(""))
                         output = "0";
 
                     array.add(output);
 
-                    if (array.size() == 29) {
-                        Log.i(TAG,"a");
+                    if (array.size() == 46) {
+                        //Log.i(TAG,"a");
                     }
 
                     if (mValues.size() >= j && mValues.size() > 0) {

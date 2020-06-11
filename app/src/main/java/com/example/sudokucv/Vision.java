@@ -281,6 +281,12 @@ public class Vision {
         //boxes.add(imgLabel(noiseBorder, "Noise selected"));
         //boxes.add(imgLabel(image, "post remove noise"));
 
+        // Smooth
+        Imgproc.medianBlur(image, image, 3);
+        //Imgproc.medianBlur(image, image, 3);
+        //Imgproc.medianBlur(image, image, 3);
+        //boxes.add(imgLabel(image, "post smooth"));
+
         // Remove noise from the rest of contours
         contents.removeAll(noise);
 
@@ -301,8 +307,6 @@ public class Vision {
             Double area = Imgproc.contourArea(contour);
             if (area < 15000 && area > 1200) { // Number
                 Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
-
-
 
                 MatOfPoint2f m2f = new MatOfPoint2f(contour.toArray());
                 RotatedRect rr = Imgproc.minAreaRect(m2f);
@@ -511,8 +515,8 @@ public class Vision {
 
         // Optional, test later
         baseApi.setPageSegMode(TessBaseAPI.PageSegMode.PSM_SINGLE_LINE);
-        baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, "!?@#$%&*()<>_-+=/:;'\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-        baseApi.setVariable(TessBaseAPI.VAR_CHAR_WHITELIST, "0123456789");
+        //baseApi.setVariable(TessBaseAPI.VAR_CHAR_BLACKLIST, "!?@#$%&*()<>_-+=/:;'\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+        baseApi.setVariable(TessBaseAPI.VAR_CHAR_WHITELIST, "123456789");
         baseApi.setVariable("classify_bln_numeric_mode", "1");
 
         return 0;

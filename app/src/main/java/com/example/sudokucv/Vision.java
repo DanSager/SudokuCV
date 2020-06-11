@@ -3,6 +3,7 @@ package com.example.sudokucv;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.Image;
+import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
 import android.widget.Toast;
@@ -208,7 +209,7 @@ public class Vision {
 
         // Erode
         Mat erode = image.clone();
-        Imgproc.erode(erode, erode, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_CROSS, new Size(2,2)));
+        Imgproc.erode(erode, erode, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_CROSS, new Size(3,3)));
         //boxes.add(imgLabel(erode, "erode"));
         image = erode.clone();
 
@@ -261,13 +262,6 @@ public class Vision {
         Mat noiseBorder = warpedOriginal.clone();
         //boxes.add(imgLabel(image, "After wrap & resize"));
 
-        // Closing - Effect uncertain
-        // Mat closing = new Mat(image.rows(), image.cols(), image.type());
-        // Mat kernel = Mat.ones(5,5, CvType.CV_32F);
-        // Imgproc.morphologyEx(image, closing, Imgproc.MORPH_CLOSE, kernel);
-        // boxes.add(imgLabel(closing, "closing"));
-        // image = closing.clone();
-
         // Filter out all noise
         contents = new ArrayList<>();
         Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -287,6 +281,13 @@ public class Vision {
         Imgproc.medianBlur(image, image, 3);
         //boxes.add(imgLabel(image, "post smooth"));
 
+        // Closing - Effect uncertain
+        Mat closing = new Mat(image.rows(), image.cols(), image.type());
+        Mat kernel = Mat.ones(3,3, CvType.CV_32F);
+        Imgproc.morphologyEx(image, closing, Imgproc.MORPH_CLOSE, kernel);
+        //boxes.add(imgLabel(closing, "closing"));
+        image = closing.clone();
+
         // Remove noise from the rest of contours
         contents.removeAll(noise);
 
@@ -305,7 +306,7 @@ public class Vision {
         // Remove numbers
         for (MatOfPoint contour : contents) {
             Double area = Imgproc.contourArea(contour);
-            if (area < 15000 && area > 1100) { // Number
+            if (area < 15000 && area > 1050) { // Number
                 Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
 
                 MatOfPoint2f m2f = new MatOfPoint2f(contour.toArray());
@@ -358,9 +359,75 @@ public class Vision {
             }
         }
 
+        Boolean hough = false;
         if (squares.size() != 81) {
-            Log.e(TAG, "Number of squares != 81");
-            //return boxes;
+            hough = true;
+        }
+
+        // Hough
+        if (hough) {
+            Core.subtract(blankWrappedSize, image, image);
+            Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
+            Core.subtract(blankWrappedSize, whiteOut, whiteOut);
+
+            Mat imageInverted = image.clone();
+            Mat blankWrappedSize2 = new Mat(image.rows(), image.cols(), image.type(), new Scalar(255, 255, 255));
+            Core.subtract(blankWrappedSize2, imageInverted, imageInverted);
+            Mat cannyEdges = new Mat();
+            Imgproc.Canny(imageInverted, cannyEdges, 40, 60);
+            //boxes.add(imgLabel(cannyEdges, "canny"));
+            Mat lines = new Mat();
+            Imgproc.HoughLines(cannyEdges, lines, 1, Math.PI / 180, 200);
+
+            Mat houghLines = new Mat();
+            Imgproc.cvtColor(cannyEdges, houghLines, Imgproc.COLOR_GRAY2BGR);
+
+            for (int x = 0; x < lines.rows(); x++) {
+                double rho = lines.get(x, 0)[0],
+                        theta = lines.get(x, 0)[1];
+
+                double a = Math.cos(theta), b = Math.sin(theta);
+                double x0 = a * rho, y0 = b * rho;
+                Point pt1 = new Point(Math.round(x0 + 2000 * (-b)), Math.round(y0 + 2000 * (a)));
+                Point pt2 = new Point(Math.round(x0 - 2000 * (-b)), Math.round(y0 - 2000 * (a)));
+                Imgproc.line(houghLines, pt1, pt2, new Scalar(0, 0, 255), 3, Imgproc.LINE_AA, 0);
+                Imgproc.line(image, pt1, pt2, new Scalar(255, 255, 255), 3, Imgproc.LINE_AA, 0);
+            }
+            //boxes.add(imgLabel(houghLines, "hough"));
+            //boxes.add(imgLabel(image, "after hough"));
+
+
+            // Fix horizontal and vertical lines2
+            sv = new Size(1, 7);
+            vertical_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sv);
+            Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, vertical_kernel, new Point(vertical_kernel.size().width / 2, vertical_kernel.size().height / 2), 11);
+            sh = new Size(7, 1);
+            horizontal_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sh);
+            Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width / 2, horizontal_kernel.size().height / 2), 11);
+
+            //boxes.add(imgLabel(image, "post fix Vert and hor"));
+
+            Core.subtract(blankWrappedSize, image, image);
+            Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
+            Core.subtract(blankWrappedSize, whiteOut, whiteOut);
+
+            //boxes.add(imgLabel(image, "post invert"));
+
+            // Find the squares
+            mostlySquares = new ArrayList<>();
+            squares = new ArrayList<>();
+            Imgproc.findContours(image, mostlySquares, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+            for (MatOfPoint contour : mostlySquares) {
+                if (Imgproc.contourArea(contour) > 20000) {
+                    squares.add(contour);
+                }
+            }
+
+            if (squares.size() != 81) {
+                Log.e(TAG, "Number of squares != 81");
+                //return boxes;
+            }
         }
 
         //sort by y coordinates using the topleft point of every contour's bounding box
@@ -393,6 +460,7 @@ public class Vision {
             }
         }
 
+        int count = 0;
         Scalar alternate = red;
         for (List<MatOfPoint> row_of_contours : sortedSquares) {
             for (MatOfPoint contour : row_of_contours) {
@@ -409,13 +477,17 @@ public class Vision {
                 Mat cro = filledBoxes.submat(ROI);
                 //Mat cro = whiteOut.submat(ro);
 
-                //boxes.add(crop);
+                boxes.add(crop);
                 //boxes.add(cro);
+                //boxes.add(imgLabel(boxBorder.clone(), Integer.toString(count)));
+                //count ++;
             }
+
+            //boxes.add(boxBorder.clone());
         }
 
-
-        boxes.add(imgLabel(boxBorder, "border of squares"));
+        //boxes.add(imgLabel(whiteOut, "whiteout"));
+        //boxes.add(imgLabel(boxBorder, "border of squares"));
 
         // TODO increase line detection
         // TODO try cropping the

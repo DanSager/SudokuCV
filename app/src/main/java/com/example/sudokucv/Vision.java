@@ -2,15 +2,11 @@ package com.example.sudokucv;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.media.Image;
-import android.os.SystemClock;
 import android.util.Log;
-import android.util.Pair;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.googlecode.tesseract.android.TessBaseAPI;
-//import com.zsmarter.*;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
@@ -42,18 +38,17 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import static org.opencv.core.CvType.CV_32F;
 import static org.opencv.core.CvType.CV_8U;
 import static org.opencv.core.CvType.CV_8UC3;
 
 public class Vision {
 
-    static final String TAG = "Vision";
-    private boolean testing = false;
     Context context = null;
-    final String TEST_FILES = "testfiles";
-    final String TESS_DATA = "tessdata";
     TessBaseAPI baseApi = null;
+
+    static final String TAG = "Vision";
+    final String TESS_DATA = "tessdata";
+    final String TEST_FILES = "testfiles";
 
     static {
         OpenCVLoader.initDebug();
@@ -61,9 +56,6 @@ public class Vision {
 
     public int create(Context con) {
         context = con;
-        if (context.getPackageName().contains("test")) {
-            testing = true;
-        }
 
         prepareFiles("", TESS_DATA);
         prepareFiles(TEST_FILES, TEST_FILES);
@@ -101,16 +93,15 @@ public class Vision {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error: prepareFiles - " + e.getMessage());
+            int currentLine = getLineNumber();
+            Log.e(TAG, currentLine + " " + e.getMessage());
         }
     }
 
     public ArrayList<Triplet<Mat, List<String>, String>> getImages(int index) {
         boolean single = (index > -1);
-        //externalDir = "/storage/emulated/0/Android/data/com.example.sudokucv/files";
         String externalDir = context.getExternalFilesDir("/").getPath();
 
-        //ArrayList<Pair<Mat, List<String>>> images = new ArrayList<>();
         ArrayList<Triplet<Mat, List<String>, String>> images = new ArrayList<>();
 
         try {
@@ -140,7 +131,8 @@ public class Vision {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error: " + e.getMessage());
+            int currentLine = getLineNumber();
+            Log.e(TAG, currentLine + " " + e.getMessage());
         }
 
         return images;
@@ -154,22 +146,11 @@ public class Vision {
             Gson gson = new Gson();
             data = gson.fromJson(reader, String[].class);
         } catch (FileNotFoundException ex) {
-            Log.e(TAG, ex.getMessage());
+            int currentLine = getLineNumber();
+            Log.e(TAG, currentLine + " " + ex.getMessage());
         }
         List l = Arrays.asList(data);
         return l;
-    }
-
-    public Mat getHoughPTransform(Mat image, double rho, double theta, int threshold) {
-        Mat result = image.clone();
-        Mat lines = new Mat();
-        Imgproc.HoughLinesP(image, lines, rho, theta, threshold);
-
-        for (int i = 0; i < lines.cols(); i++) {
-            double[] val = lines.get(0, i);
-            Imgproc.line(result, new Point(val[0], val[1]), new Point(val[2], val[3]), new Scalar(0, 0, 255), 2);
-        }
-        return result;
     }
 
     public ArrayList<Mat> isolateBoxes(Mat image) {
@@ -315,7 +296,6 @@ public class Vision {
                 Double dou = sz.width / 4;
                 Double dou2 = sz.height / 4;
                 rr.size = new Size(sz.width +dou, sz.height+dou2);
-                //rr.center = new Point(rr.center.x + 20, rr.center.y + 20);
 
                 Mat mask = new Mat(filledBoxes.rows(), filledBoxes.cols(), CvType.CV_8U, Scalar.all(0));
                 Imgproc.ellipse(mask, rr, white, -1);
@@ -323,10 +303,6 @@ public class Vision {
 
                 Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, red, 2);
                 numbers.add(contour);
-                //boxes.add(imgLabel(numberBorder, "Area: " + area));
-            } else if (area > 1000 && area < 1100) {
-                Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, green, 2);
-                //boxes.add(imgLabel(numberBorder, "Area: " + area));
             }
         }
 
@@ -359,13 +335,8 @@ public class Vision {
             }
         }
 
-        Boolean hough = false;
         if (squares.size() != 81) {
-            hough = true;
-        }
 
-        // Hough
-        if (hough) {
             Core.subtract(blankWrappedSize, image, image);
             Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
             Core.subtract(blankWrappedSize, whiteOut, whiteOut);
@@ -425,7 +396,8 @@ public class Vision {
             }
 
             if (squares.size() != 81) {
-                Log.e(TAG, "Number of squares != 81");
+                int currentLine = getLineNumber();
+                Log.e(TAG, currentLine + " " + "Number of squares != 81");
                 //return boxes;
             }
         }
@@ -488,9 +460,6 @@ public class Vision {
 
         //boxes.add(imgLabel(whiteOut, "whiteout"));
         //boxes.add(imgLabel(boxBorder, "border of squares"));
-
-        // TODO increase line detection
-        // TODO try cropping the
 
         return boxes;
     }
@@ -605,6 +574,126 @@ public class Vision {
         String text = baseApi.getUTF8Text();
         //baseApi.end();
         return text;
+    }
+
+    public static int getLineNumber() {
+        return Thread.currentThread().getStackTrace()[2].getLineNumber();
+    }
+
+    public List<MatOfPoint> sortSquares (List<MatOfPoint> squares) {
+        List<List<MatOfPoint>> sortedSquares = new ArrayList<>();
+        List<MatOfPoint> sorted = new ArrayList<>();
+        List<MatOfPoint> row = new ArrayList<>();
+
+        //sort by y coordinates using the topleft point of every contour's bounding box
+        Collections.sort(squares, new Comparator<MatOfPoint>() {
+            @Override
+            public int compare(MatOfPoint o1, MatOfPoint o2) {
+                Rect rect1 = Imgproc.boundingRect(o1);
+                Rect rect2 = Imgproc.boundingRect(o2);
+                int result = Double.compare(rect1.tl().y, rect2.tl().y);
+                return result;
+            }
+        } );
+
+        int i = 0;
+        for (MatOfPoint contour : squares) {
+            row.add(contour);
+            i++;
+            if (i % 9 == 0) {
+                //sort by x coordinates
+                Collections.sort(row, new Comparator<MatOfPoint>() {
+                    @Override
+                    public int compare(MatOfPoint o1, MatOfPoint o2) {
+                        Rect rect1 = Imgproc.boundingRect(o1);
+                        Rect rect2 = Imgproc.boundingRect(o2);
+                        return Double.compare(rect1.tl().x, rect2.tl().x);
+                    }
+                });
+                sortedSquares.add(row);
+                row = new ArrayList<>();
+            }
+        }
+
+        if (row.size() > 0) {
+            sortedSquares.add(row);
+        }
+
+        for (List<MatOfPoint> row_of_contours : sortedSquares) {
+            for (MatOfPoint contour : row_of_contours) {
+                sorted.add(contour);
+            }
+        }
+
+        return sorted;
+    }
+
+    public List<Point> findCenterPoints(Bitmap bitmap) {
+        Mat image = new Mat();
+        List<MatOfPoint> contents = new ArrayList<>();
+        List<MatOfPoint> sortedContents = null;
+        Utils.bitmapToMat(bitmap, image);
+        Mat copy = image.clone();
+
+        List<Point> points = new ArrayList<>();
+
+        Imgproc.cvtColor(image, image, Imgproc.COLOR_RGB2GRAY);
+        Imgproc.adaptiveThreshold(image, image, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 57, 3);
+
+        Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+        List<MatOfPoint> contents2 = new ArrayList<>();
+        for (MatOfPoint c : contents) {
+            if (Imgproc.contourArea(c) < 60000) {
+                contents2.add(c);
+            }
+        }
+
+        sortedContents = sortSquares(contents2);
+
+        int num = 0;
+
+        int baseline[]={0};
+        Size s = Imgproc.getTextSize(Integer.toString(num), Imgproc.FONT_HERSHEY_DUPLEX, 6, 6, baseline);
+        for (MatOfPoint contour : sortedContents) {
+            MatOfPoint mop = new MatOfPoint();
+            mop.fromList(contour.toList());
+
+            Moments moments = Imgproc.moments(mop);
+
+            Point centroid = new Point();
+
+            centroid.x = (moments.get_m10() / moments.get_m00()) - s.width/2;
+            centroid.y = (moments.get_m01() / moments.get_m00()) + s.height/2;
+            points.add(centroid);
+            //Imgproc.putText(copy, Integer.toString(num), new Point(centroid.x,centroid.y), Imgproc.FONT_HERSHEY_DUPLEX, 6, new Scalar(0, 0, 0), 6);
+
+            num ++;
+        }
+
+        Bitmap img_bitmap = bitmap.copy(bitmap.getConfig(), true);
+        Utils.matToBitmap(copy, img_bitmap);
+        return points;
+    }
+
+    public Bitmap writeInValues (Bitmap bmp, String[] values, List<Point> points) {
+        Mat mat = new Mat();
+        Utils.bitmapToMat(bmp, mat);
+        Bitmap img_bitmap = bmp.copy(bmp.getConfig(), true);
+
+        if (values.length == points.size()) {
+            for (int i = 0; i < values.length; i++) {
+                if (values[i].equals("0")) {
+                    continue;
+                } else {
+                    Imgproc.putText(mat, values[i], points.get(i), Imgproc.FONT_HERSHEY_DUPLEX, 6, new Scalar(0, 0, 0), 6);
+                }
+            }
+        }
+
+
+        Utils.matToBitmap(mat, img_bitmap);
+        return img_bitmap;
     }
 
 }

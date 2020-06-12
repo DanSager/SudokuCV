@@ -5,10 +5,14 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
 import android.widget.ImageView;
@@ -27,51 +31,30 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     static final String TAG = "MainActivity";
-    public static final String TESS_DATA = "tessdata";
-
-    //    static {
-//        if (OpenCVLoader.initDebug()) {
-//            Log.d(TAG, "success");
-//        } else {
-//            Log.d(TAG,"unsuccess");
-//        }
-//    }
-//
-//    // Used to load the 'native-lib' library on application startup.
-    static {
-        //System.loadLibrary("native-lib");
-        //System.loadLibrary("opencv_java3");
-        //System.loadLibrary("jpgt");
-        //System.loadLibrary("pngt");
-        //System.loadLibrary("lept");
-        //System.loadLibrary("tess");
-    }
-//
-//    private static void loadLibraries() {
-//        if (OpenCVLoader.initDebug()) {
-//            Log.d(TAG, "success");
-//        } else {
-//            Log.d(TAG,"unsuccess");
-//        }
-//
-//        System.loadLibrary("native-lib");
-//        System.loadLibrary("opencv_java3");
-//        System.loadLibrary("jpgt");
-//        System.loadLibrary("pngt");
-//        System.loadLibrary("lept");
-//        System.loadLibrary("tess");
-//    }
+    Handler mainHandler = new Handler();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Example of a call to a native method
-        //TextView tv = findViewById(R.id.sample_text);
-        //tv.setText(stringFromJNI());
+        // Set up permissions and ocr
+        checkPermission();
+        Vision v = new Vision();
+        v.create(getBaseContext());
 
-        new loadTask().execute();
+        // Execute included tests
+        //ExecuteTests tests = new ExecuteTests(v);
+        //tests.start();
+
+        // Get image values
+
+
+        // Open preview screen
+        String[] values = new String[] {"8","0","0","1","0","0","4","0","0","0","0","0","0","0","6","0","0","2","0","3","0","9","0","0","1","7","0","0","0","0","0","0","3","0","9","1","0","0","8","0","0","0","2","0","0","9","1","0","4","0","0","0","0","0","0","9","4","0","0","2","0","3","0","6","0","0","3","0","0","0","0","0","0","0","3","0","0","7","0","0","4"};
+        Intent intent = new Intent(getApplicationContext(), PreviewActivity.class);
+        intent.putExtra("values", values);
+        startActivity(intent);
     }
 
     private void checkPermission() {
@@ -83,18 +66,31 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private class loadTask extends AsyncTask<Void, Bitmap, Void> {
+    private void updateImageView(Bitmap bm) {
+        final Bitmap map = bm;
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                ImageView view = findViewById(R.id.img);
+                view.setImageBitmap(map);
+            }
+        });
+    }
+
+    public class ExecuteTests extends Thread {
+        Vision v;
+
+        ExecuteTests(Vision vRef) {
+            this.v = vRef;
+        }
 
         @Override
-        protected Void doInBackground(Void... voids) {
-            checkPermission();
-            //prepareFiles("",TESS_DATA);
-            Vision v = new Vision();
-            v.create(getBaseContext());
-            ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(-1);
-            int i = 0;
+        public void run() {
+            ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(1);
 
             for (Triplet<Mat, List<String>, String> t : images) {
+                long startTime = System.currentTimeMillis();
+
                 Mat mImages = t.getFirst();
                 List<String> mValues = t.getSecond();
                 String name = t.getThird();
@@ -106,18 +102,14 @@ public class MainActivity extends AppCompatActivity {
                 int j = 0;
                 for (Mat image : results) {
                     Bitmap b = v.getBitMap(image);
-                    publishProgress(b);
+                    updateImageView(b);
+
                     String output = "";
                     output = v.readText(b);
-                    String realpred = output + " real";
                     if (output.equals("") || output.equals("."))
                         output = "0";
 
                     array.add(output);
-
-                    if (array.size() == 54) {
-                        //Log.i(TAG,"a");
-                    }
 
                     if (mValues.size() >= j && mValues.size() > 0) {
                         if (!output.equals(mValues.get(j))) {
@@ -125,30 +117,25 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                     j++;
-
-                    //SystemClock.sleep(2);
                 }
 
-                Log.i(TAG, "Image " + name + " result: " + Boolean.toString(mValues.equals(array)));
+                long endTime = System.currentTimeMillis();
+                long duration = (endTime - startTime);
+
+                Log.i(TAG, "Image " + name + " result: " + Boolean.toString(mValues.equals(array)) + " in " + duration + "ms");
 
                 if (mValues.size() == 0 && array.size() == 81)
-                    //build(array, name);
-                    i++;
+                    makeJson(array, name);
             }
-
-            return null;
         }
 
-        private void build(List<String> array, String name) {
+        private void makeJson(List<String> array, String name) {
             String path = getExternalFilesDir("/").getPath() + "/" + "testfiles" + "/" + name + ".json";
             try {
-                // create a writer
                 Writer writer = new FileWriter(path);
 
-                // convert map to JSON File
                 new Gson().toJson(array, writer);
 
-                // close the writer
                 writer.close();
             } catch (Exception e) {
                 Log.e(TAG, e.getMessage());
@@ -156,13 +143,6 @@ public class MainActivity extends AppCompatActivity {
             Log.i(TAG, "wrote new file for: " + name + ".json");
         }
 
-        protected void onProgressUpdate(Bitmap... values) {
-            Bitmap b = values[0];
-
-            ImageView view = findViewById(R.id.img);
-            view.setImageBitmap(b);
-
-            super.onProgressUpdate();
-        }
     }
+
 }

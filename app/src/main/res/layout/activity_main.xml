@@ -6,12 +6,6 @@
     android:orientation="vertical"
     tools:context="com.example.sudokucv.MainActivity">
 
-    <Button
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Display Toast Message" />
-    <!--android:onClick="displayToast"-->
-
     <ImageView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -19,5 +13,11 @@
         android:id="@+id/img"
         android:adjustViewBounds="true"
         />
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Start"
+        android:onClick="start" />
 
 </LinearLayout>

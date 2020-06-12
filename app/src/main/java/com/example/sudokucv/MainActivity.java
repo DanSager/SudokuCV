@@ -15,10 +15,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
+import android.view.View;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 
+import org.opencv.android.Utils;
 import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs; // imread, imwrite, etc
 import org.opencv.videoio.Videoio; // VideoCapture
@@ -32,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
 
     static final String TAG = "MainActivity";
     Handler mainHandler = new Handler();
+    private String[] values = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,18 +47,38 @@ public class MainActivity extends AppCompatActivity {
         Vision v = new Vision();
         v.create(getBaseContext());
 
+        // Temp load image, will be replaced later with capture image
+        Triplet<Mat, List<String>, String> image = loadImage(v);
+
+        // Display image
+        Mat mat = image.getFirst();
+        Bitmap bmp = v.getBitMap(mat);
+        updateImageView(bmp);
+
+        // Process image
+        ProcessImage pi = new ProcessImage(v, mat);
+        pi.start();
+
+
+
+        // ############################
         // Execute included tests
         //ExecuteTests tests = new ExecuteTests(v);
         //tests.start();
+    }
 
-        // Get image values
-
-
+    public void start(View view) {
         // Open preview screen
-        String[] values = new String[] {"8","0","0","1","0","0","4","0","0","0","0","0","0","0","6","0","0","2","0","3","0","9","0","0","1","7","0","0","0","0","0","0","3","0","9","1","0","0","8","0","0","0","2","0","0","9","1","0","4","0","0","0","0","0","0","9","4","0","0","2","0","3","0","6","0","0","3","0","0","0","0","0","0","0","3","0","0","7","0","0","4"};
-        Intent intent = new Intent(getApplicationContext(), PreviewActivity.class);
-        intent.putExtra("values", values);
-        startActivity(intent);
+        if (values == null) {
+            Toast.makeText(getApplicationContext(), "Try again, null", Toast.LENGTH_SHORT).show();
+        } else if (values.length != 81) {
+            Toast.makeText(getApplicationContext(), "Try again, != 81", Toast.LENGTH_SHORT).show();
+        } else {
+            //String[] values = new String[] {"8","0","0","1","0","0","4","0","0","0","0","0","0","0","6","0","0","2","0","3","0","9","0","0","1","7","0","0","0","0","0","0","3","0","9","1","0","0","8","0","0","0","2","0","0","9","1","0","4","0","0","0","0","0","0","9","4","0","0","2","0","3","0","6","0","0","3","0","0","0","0","0","0","0","3","0","0","7","0","0","4"};
+            Intent intent = new Intent(getApplicationContext(), PreviewActivity.class);
+            intent.putExtra("values", values);
+            startActivity(intent);
+        }
     }
 
     private void checkPermission() {
@@ -75,6 +99,62 @@ public class MainActivity extends AppCompatActivity {
                 view.setImageBitmap(map);
             }
         });
+    }
+
+    private Triplet<Mat, List<String>, String> loadImage(Vision v) {
+        ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(0);
+        return images.get(0);
+    }
+
+    public class ProcessImage extends Thread {
+        Vision v;
+        Mat mat;
+
+        ProcessImage(Vision vRef, Mat mRef) {
+            this.v = vRef;
+            this.mat = mRef;
+        }
+
+        @Override
+        public void run() {
+            // Process
+            String[] sudokuDefaults = processImage(mat);
+            if (sudokuDefaults == null) {
+                return;
+            }
+
+            values = sudokuDefaults;
+            //Toast.makeText(getApplicationContext(), "Ready", Toast.LENGTH_SHORT).show();
+
+        }
+
+        private String[] processImage (Mat img) {
+            long startTime = System.currentTimeMillis();
+
+            ArrayList<Mat> numImgs = v.isolateBoxes(img);
+
+            String[] array = new String[numImgs.size()];
+
+            int i = 0;
+            for (Mat numImg : numImgs) {
+                Bitmap b = v.getBitMap(numImg);
+
+                String output = v.readText(b);
+                if (output.equals("") || output.equals("."))
+                    output = "0";
+
+                array[i] = output;
+                i++;
+            }
+
+            long endTime = System.currentTimeMillis();
+            long duration = (endTime - startTime);
+            if (array.length == 81) {
+                Log.i(TAG, "Processed image. Duration: " + duration + "ms");
+                return array;
+            }
+            return null;
+        }
     }
 
     public class ExecuteTests extends Thread {

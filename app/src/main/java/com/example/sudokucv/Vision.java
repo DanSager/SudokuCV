@@ -153,9 +153,11 @@ public class Vision {
         return l;
     }
 
-    public ArrayList<Mat> isolateBoxes(Mat image) {
+    public ArrayList<Mat>[] isolateBoxes(Mat image) {
         // Lists
         ArrayList<Mat> boxes = new ArrayList<>();
+        ArrayList<Mat> steps = new ArrayList<>();
+
         List<MatOfPoint> contents = new ArrayList<>();
         List<MatOfPoint> mostlySquares = new ArrayList<>();
         List<MatOfPoint> squares = new ArrayList<>();
@@ -186,17 +188,17 @@ public class Vision {
 
         // Make grayscale
         Imgproc.cvtColor(image, image, Imgproc.COLOR_RGB2GRAY);
-        //boxes.add(imgLabel(image, "gray"));
+        steps.add(imgLabel(image, "gray"));
 
         // Erode
         Mat erode = image.clone();
         Imgproc.erode(erode, erode, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_CROSS, new Size(3,3)));
-        //boxes.add(imgLabel(erode, "erode"));
+        steps.add(imgLabel(erode, "erode"));
         image = erode.clone();
 
         // adaptive threshold, make black or white and invert
         Imgproc.adaptiveThreshold(image, image, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 57, 3);
-        //boxes.add(imgLabel(image, "adaptive"));
+        steps.add(imgLabel(image, "adaptive"));
 
         // Find all contours
         Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -214,7 +216,7 @@ public class Vision {
 
         // Draw red line around border (debugging purposes only)
         Imgproc.drawContours(puzzleBorder, Arrays.asList(largestContour), -1, red, 3);
-        //boxes.add(imgLabel(puzzleBorder, "puzzle border"));
+        steps.add(imgLabel(puzzleBorder, "puzzle border"));
 
         Mat maskedImage = new Mat(image.size(), CV_8UC3).setTo(white);
         Mat blankOriginalSize = new Mat(image.size(), image.type(), white);
@@ -241,7 +243,7 @@ public class Vision {
         Imgproc.resize(warpedOriginal, warpedOriginal, s);
 
         Mat noiseBorder = warpedOriginal.clone();
-        //boxes.add(imgLabel(image, "After wrap & resize"));
+        steps.add(imgLabel(image, "After wrap & resize"));
 
         // Filter out all noise
         contents = new ArrayList<>();
@@ -255,18 +257,18 @@ public class Vision {
             }
         }
 
-        //boxes.add(imgLabel(noiseBorder, "Noise selected"));
-        //boxes.add(imgLabel(image, "post remove noise"));
+        steps.add(imgLabel(noiseBorder, "Noise selected"));
+        steps.add(imgLabel(image, "post remove noise"));
 
         // Smooth
         Imgproc.medianBlur(image, image, 3);
-        //boxes.add(imgLabel(image, "post smooth"));
+        steps.add(imgLabel(image, "post smooth"));
 
         // Closing - Effect uncertain
         Mat closing = new Mat(image.rows(), image.cols(), image.type());
         Mat kernel = Mat.ones(3,3, CvType.CV_32F);
         Imgproc.morphologyEx(image, closing, Imgproc.MORPH_CLOSE, kernel);
-        //boxes.add(imgLabel(closing, "closing"));
+        steps.add(imgLabel(closing, "closing"));
         image = closing.clone();
 
         // Remove noise from the rest of contours
@@ -282,7 +284,7 @@ public class Vision {
         contents = new ArrayList<>(); // Clear old contours, ie. containing border
         Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
-        //boxes.add(imgLabel(whiteOut, "whiteout"));
+        //steps.add(imgLabel(whiteOut, "whiteout"));
 
         // Remove numbers
         for (MatOfPoint contour : contents) {
@@ -306,9 +308,9 @@ public class Vision {
             }
         }
 
-        //boxes.add(imgLabel(numberBorder, "Number border"));
-        //boxes.add(imgLabel(whiteOut, "whiteout"));
-        //boxes.add(imgLabel(image, "post remove nums"));
+        steps.add(imgLabel(numberBorder, "Number border"));
+        steps.add(imgLabel(whiteOut, "whiteout"));
+        steps.add(imgLabel(image, "post remove nums"));
 
         // Fix horizontal and vertical lines
         Size sv = new Size(1, 7);
@@ -318,7 +320,7 @@ public class Vision {
         Mat horizontal_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sh);
         Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width/2, horizontal_kernel.size().height/2), 11);
 
-        //boxes.add(imgLabel(image, "post fix Vert and hor"));
+        steps.add(imgLabel(image, "post fix Vert and hor"));
 
         // Invert image
         Mat blankWrappedSize = new Mat(image.rows(),image.cols(), image.type(), new Scalar(255,255,255));
@@ -346,7 +348,7 @@ public class Vision {
             Core.subtract(blankWrappedSize2, imageInverted, imageInverted);
             Mat cannyEdges = new Mat();
             Imgproc.Canny(imageInverted, cannyEdges, 40, 60);
-            //boxes.add(imgLabel(cannyEdges, "canny"));
+            steps.add(imgLabel(cannyEdges, "canny"));
             Mat lines = new Mat();
             Imgproc.HoughLines(cannyEdges, lines, 1, Math.PI / 180, 200);
 
@@ -364,8 +366,8 @@ public class Vision {
                 Imgproc.line(houghLines, pt1, pt2, new Scalar(0, 0, 255), 3, Imgproc.LINE_AA, 0);
                 Imgproc.line(image, pt1, pt2, new Scalar(255, 255, 255), 3, Imgproc.LINE_AA, 0);
             }
-            //boxes.add(imgLabel(houghLines, "hough"));
-            //boxes.add(imgLabel(image, "after hough"));
+            steps.add(imgLabel(houghLines, "hough"));
+            steps.add(imgLabel(image, "after hough"));
 
 
             // Fix horizontal and vertical lines2
@@ -376,13 +378,13 @@ public class Vision {
             horizontal_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sh);
             Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width / 2, horizontal_kernel.size().height / 2), 11);
 
-            //boxes.add(imgLabel(image, "post fix Vert and hor"));
+            steps.add(imgLabel(image, "post fix Vert and hor"));
 
             Core.subtract(blankWrappedSize, image, image);
             Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
             Core.subtract(blankWrappedSize, whiteOut, whiteOut);
 
-            //boxes.add(imgLabel(image, "post invert"));
+            steps.add(imgLabel(image, "post invert"));
 
             // Find the squares
             mostlySquares = new ArrayList<>();
@@ -446,7 +448,7 @@ public class Vision {
                 Rect ROI = Imgproc.boundingRect(contour);
                 //Rect ro = new Rect(ROI.x+11, ROI.y+11, ROI.width-22, ROI.height-22);
                 Mat crop = whiteOut.submat(ROI);
-                Mat cro = filledBoxes.submat(ROI);
+                //Mat cro = filledBoxes.submat(ROI);
                 //Mat cro = whiteOut.submat(ro);
 
                 boxes.add(crop);
@@ -455,13 +457,17 @@ public class Vision {
                 //count ++;
             }
 
-            //boxes.add(boxBorder.clone());
+            steps.add(imgLabel(boxBorder, "adding rows"));
         }
 
-        //boxes.add(imgLabel(whiteOut, "whiteout"));
-        //boxes.add(imgLabel(boxBorder, "border of squares"));
+        steps.add(imgLabel(whiteOut, "whiteout"));
+        steps.add(imgLabel(boxBorder, "border of squares"));
 
-        return boxes;
+        ArrayList<Mat>[] a = new ArrayList[2];
+        a[0] = boxes;
+        a[1] = steps;
+
+        return a;
     }
 
     private Mat imgLabel(Mat img, String label) {

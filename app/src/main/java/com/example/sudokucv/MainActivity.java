@@ -13,6 +13,7 @@ import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Parcelable;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
@@ -36,6 +37,8 @@ public class MainActivity extends AppCompatActivity {
     static final String TAG = "MainActivity";
     Handler mainHandler = new Handler();
     private String[] values = null;
+    ArrayList<Mat> steps = new ArrayList<>();
+    private int stepsIterator = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,8 +62,6 @@ public class MainActivity extends AppCompatActivity {
         ProcessImage pi = new ProcessImage(v, mat);
         pi.start();
 
-
-
         // ############################
         // Execute included tests
         //ExecuteTests tests = new ExecuteTests(v);
@@ -81,6 +82,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public void debug(View view) {
+        if (stepsIterator >= steps.size()) {
+            stepsIterator = 0;
+        }
+
+        Mat img = steps.get(stepsIterator);
+        stepsIterator++;
+
+        Bitmap img_bitmap = Bitmap.createBitmap(img.cols(), img.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(img, img_bitmap);
+        updateImageView(img_bitmap);
+    }
+
     private void checkPermission() {
         if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 120);
@@ -97,6 +111,16 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 ImageView view = findViewById(R.id.img);
                 view.setImageBitmap(map);
+            }
+        });
+    }
+
+    private void toast(String incoming) {
+        final String msg = incoming;
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -124,14 +148,14 @@ public class MainActivity extends AppCompatActivity {
             }
 
             values = sudokuDefaults;
-            //Toast.makeText(getApplicationContext(), "Ready", Toast.LENGTH_SHORT).show();
-
         }
 
         private String[] processImage (Mat img) {
             long startTime = System.currentTimeMillis();
 
-            ArrayList<Mat> numImgs = v.isolateBoxes(img);
+            ArrayList<Mat>[] boxes = v.isolateBoxes(img);
+            ArrayList<Mat> numImgs = boxes[0];
+            steps = boxes[1];
 
             String[] array = new String[numImgs.size()];
 
@@ -150,6 +174,7 @@ public class MainActivity extends AppCompatActivity {
             long endTime = System.currentTimeMillis();
             long duration = (endTime - startTime);
             if (array.length == 81) {
+                toast("Ready");
                 Log.i(TAG, "Processed image. Duration: " + duration + "ms");
                 return array;
             }
@@ -175,7 +200,7 @@ public class MainActivity extends AppCompatActivity {
                 List<String> mValues = t.getSecond();
                 String name = t.getThird();
 
-                ArrayList<Mat> results = v.isolateBoxes(mImages);
+                ArrayList<Mat> results = v.isolateBoxes(mImages)[0];
 
                 List<String> array = new ArrayList<>();
 

@@ -4,26 +4,24 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context="com.example.sudokucv.MainActivity">
+    tools:context="com.example.sudokucv.PreviewActivity">
 
     <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-
         android:id="@+id/img"
-        android:adjustViewBounds="true"
-        />
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true" />
 
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Start"
-        android:onClick="start" />\
+        android:onClick="correct"
+        android:text="Correct" />
 
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:onClick="debug"
-        android:text="Debug" />
+        android:clickable="false"
+        android:text="Incorrect" />
 
 </LinearLayout>

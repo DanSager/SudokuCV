@@ -154,6 +154,9 @@ public class Vision {
     }
 
     public ArrayList<Mat>[] isolateBoxes(Mat image) {
+        final boolean print = true;
+        final long startTime = System.currentTimeMillis();
+
         // Lists
         ArrayList<Mat> boxes = new ArrayList<>();
         ArrayList<Mat> steps = new ArrayList<>();
@@ -178,6 +181,8 @@ public class Vision {
         // Make original colors, OpenCV uses BGR
         Imgproc.cvtColor(image, image, Imgproc.COLOR_BGR2RGB);
 
+        printTime(startTime, System.currentTimeMillis(), "Post cvtColor", print);
+
         // Resize image so contours are on average the same size regardless of pic
         Size s = new Size(2000, 2000);
         Imgproc.resize(image, image, s);
@@ -200,6 +205,8 @@ public class Vision {
         Imgproc.adaptiveThreshold(image, image, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 57, 3);
         steps.add(imgLabel(image, "adaptive"));
 
+        printTime(startTime, System.currentTimeMillis(), "Post adaptiveThreshold", print);
+
         // Find all contours
         Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
@@ -213,6 +220,8 @@ public class Vision {
         // White out rest of image
         Mat maskInsideContour = Mat.zeros(image.size(), CV_8U);
         Imgproc.drawContours(maskInsideContour, Arrays.asList(largestContour), -1, white, -1);
+
+        printTime(startTime, System.currentTimeMillis(), "Post whiteoutrestofimage", print);
 
         // Draw red line around border (debugging purposes only)
         Imgproc.drawContours(puzzleBorder, Arrays.asList(largestContour), -1, red, 3);
@@ -274,11 +283,15 @@ public class Vision {
         // Remove noise from the rest of contours
         contents.removeAll(noise);
 
+        printTime(startTime, System.currentTimeMillis(), "Post removenoisefromtherestofcontours", print);
+
         // Make clones
         Mat filledBoxes = image.clone(); // Holds squares with numbers and no noise
         Mat whiteOut = new Mat(image.size(), CV_8UC3).setTo(white);
         Mat numberBorder = warpedOriginal.clone();
         Mat boxBorder = warpedOriginal.clone();
+
+        printTime(startTime, System.currentTimeMillis(), "Post clones", print);
 
         // Find all boxes & numbers (as contours)
         contents = new ArrayList<>(); // Clear old contours, ie. containing border
@@ -308,6 +321,8 @@ public class Vision {
             }
         }
 
+        printTime(startTime, System.currentTimeMillis(), "Post removenumbers", print);
+
         steps.add(imgLabel(numberBorder, "Number border"));
         steps.add(imgLabel(whiteOut, "whiteout"));
         steps.add(imgLabel(image, "post remove nums"));
@@ -321,6 +336,8 @@ public class Vision {
         Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width/2, horizontal_kernel.size().height/2), 11);
 
         steps.add(imgLabel(image, "post fix Vert and hor"));
+
+        printTime(startTime, System.currentTimeMillis(), "Post fixhorizontalandverticlelines", print);
 
         // Invert image
         Mat blankWrappedSize = new Mat(image.rows(),image.cols(), image.type(), new Scalar(255,255,255));
@@ -415,6 +432,8 @@ public class Vision {
             }
         } );
 
+        printTime(startTime, System.currentTimeMillis(), "Post sortbyy", print);
+
         int i = 0;
         for (MatOfPoint contour : squares) {
             row.add(contour);
@@ -467,7 +486,16 @@ public class Vision {
         a[0] = boxes;
         a[1] = steps;
 
+        printTime(startTime, System.currentTimeMillis(), "Post everything", print);
+
         return a;
+    }
+
+    private void printTime(long startTime, long currentTime, String msg, final boolean print) {
+        if (print) {
+            long totalTime = currentTime - startTime;
+            Log.i(TAG, msg + ": " + totalTime + "ms");
+        }
     }
 
     private Mat imgLabel(Mat img, String label) {
@@ -561,6 +589,12 @@ public class Vision {
         return img_bitmap;
     }
 
+    public Mat getMat(Bitmap image) {
+        Mat img_mat = new Mat(image.getWidth(), image.getHeight(), CvType.CV_8UC4);
+        Utils.bitmapToMat(image, img_mat);
+        return img_mat;
+    }
+
     public int loadTesseract(){
         baseApi = new TessBaseAPI();
         String dataPath = context.getExternalFilesDir("/").getPath() + "/";
@@ -650,7 +684,8 @@ public class Vision {
 
         List<MatOfPoint> contents2 = new ArrayList<>();
         for (MatOfPoint c : contents) {
-            if (Imgproc.contourArea(c) < 60000) {
+            Double area = Imgproc.contourArea(c);
+            if (area < 75000) {
                 contents2.add(c);
             }
         }
@@ -696,7 +731,6 @@ public class Vision {
                 }
             }
         }
-
 
         Utils.matToBitmap(mat, img_bitmap);
         return img_bitmap;

@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.sudokucv">
 
-    <uses-feature android:name="android.handware.camera2" android:required="true"/>
+    <uses-feature android:name="android.hardware.camera2" android:required="true"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
 
@@ -15,6 +15,7 @@
         android:theme="@style/AppTheme"
         android:requestLegacyExternalStorage="true"
         android:hardwareAccelerated="false"
+
         android:largeHeap="true">
         <activity android:name=".MainActivity">
             <intent-filter>
@@ -24,6 +25,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".PreviewActivity" />
+        <uses-library android:name="android.test.runner"/>
     </application>
 
 </manifest>

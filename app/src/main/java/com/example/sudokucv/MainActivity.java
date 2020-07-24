@@ -1,20 +1,27 @@
 package com.example.sudokucv;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.graphics.drawable.Drawable;
+import android.media.ExifInterface;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcelable;
+import android.os.StrictMode;
 import android.os.SystemClock;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
@@ -27,9 +34,14 @@ import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs; // imread, imwrite, etc
 import org.opencv.videoio.Videoio; // VideoCapture
 
+import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.Writer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -39,6 +51,11 @@ public class MainActivity extends AppCompatActivity {
     private String[] values = null;
     ArrayList<Mat> steps = new ArrayList<>();
     private int stepsIterator = 0;
+    private static final int REQUEST_IMAGE_CAPTURE = 101;
+
+    ImageView imageView;
+    Uri image;
+    String mCameraFileName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,25 +64,125 @@ public class MainActivity extends AppCompatActivity {
 
         // Set up permissions and ocr
         checkPermission();
-        Vision v = new Vision();
-        v.create(getBaseContext());
+//        Vision v = new Vision();
+//        v.create(getBaseContext());
 
-        // Temp load image, will be replaced later with capture image
-        Triplet<Mat, List<String>, String> image = loadImage(v);
-
-        // Display image
-        Mat mat = image.getFirst();
-        Bitmap bmp = v.getBitMap(mat);
-        updateImageView(bmp);
-
-        // Process image
-        ProcessImage pi = new ProcessImage(v, mat);
-        pi.start();
+//        // Temp load image, will be replaced later with capture image
+//        Triplet<Mat, List<String>, String> image = loadImage(v);
+//
+//        // Display image
+//        Mat mat = image.getFirst();
+//        Bitmap bmp = v.getBitMap(mat);
+//        updateImageView(bmp);
+//
+//        // Process image
+//        ProcessImage pi = new ProcessImage(v, mat);
+//        pi.start();
 
         // ############################
         // Execute included tests
         //ExecuteTests tests = new ExecuteTests(v);
         //tests.start();
+    }
+
+    public void takePicture(View view) {
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
+        Intent intent = new Intent();
+        intent.setAction(MediaStore.ACTION_IMAGE_CAPTURE);
+
+        Date date = new Date();
+        DateFormat df = new SimpleDateFormat("-mm-ss");
+
+        String newPicFile = df.format(date) + ".jpg";
+        String outPath = "/sdcard/" + newPicFile;
+        File outFile = new File(outPath);
+
+        mCameraFileName = outFile.toString();
+        Uri outuri = Uri.fromFile(outFile);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, outuri);
+        startActivityForResult(intent, 2);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == Activity.RESULT_OK) {
+            if (requestCode == 2) {
+                imageView = findViewById(R.id.img);
+                if (data != null) {
+                    image = data.getData();
+                    imageView.setImageURI(image);
+                    imageView.setVisibility(View.VISIBLE);
+
+
+                    try {
+                        Log.i(TAG, "here1");
+                        Vision v = new Vision();
+                        v.create(getBaseContext());
+
+                        // Handle Image
+                        Bitmap bmp;
+                        bmp = MediaStore.Images.Media.getBitmap(this.getContentResolver(),image);
+                        Mat mat = v.getMat(bmp);
+
+                        // Process image
+                        ProcessImage pi = new ProcessImage(v, mat);
+                        pi.start();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+                if (image == null && mCameraFileName != null) {
+                    image = Uri.fromFile(new File(mCameraFileName));
+                    imageView.setImageURI(image);
+                    imageView.setVisibility(View.VISIBLE);
+
+                    try {
+                        Log.i(TAG, "here2");
+                        Vision v = new Vision();
+                        v.create(getBaseContext());
+
+                        // Handle Image
+                        Bitmap myBitmap;
+                        myBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(),image);
+
+                        try {
+                            ExifInterface exif = new ExifInterface(mCameraFileName);
+                            int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 1);
+                            Log.d("EXIF", "Exif: " + orientation);
+                            Matrix matrix = new Matrix();
+                            if (orientation == 6) {
+                                matrix.postRotate(90);
+                            }
+                            else if (orientation == 3) {
+                                matrix.postRotate(180);
+                            }
+                            else if (orientation == 8) {
+                                matrix.postRotate(270);
+                            }
+                            myBitmap = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), matrix, true); // rotating bitmap
+                        }
+                        catch (Exception e) {
+                            Log.e(TAG, e.getMessage());
+                        }
+
+                        Mat mat = v.getMat(myBitmap);
+
+                        // Process image
+                        ProcessImage pi = new ProcessImage(v, mat);
+                        pi.start();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                File file = new File(mCameraFileName);
+                if (!file.exists()) {
+                    file.mkdir();
+                }
+            }
+        }
     }
 
     public void start(View view) {

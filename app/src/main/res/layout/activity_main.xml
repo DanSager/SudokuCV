@@ -6,9 +6,15 @@
     android:orientation="vertical"
     tools:context="com.example.sudokucv.MainActivity">
 
-    <ImageView
+    <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="Begin"
+        android:onClick="takePicture" />
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="250dp"
 
         android:id="@+id/img"
         android:adjustViewBounds="true"
@@ -18,7 +24,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Start"
-        android:onClick="start" />\
+        android:onClick="start" />
 
     <Button
         android:layout_width="match_parent"

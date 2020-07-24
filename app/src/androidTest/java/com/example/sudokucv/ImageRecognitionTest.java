@@ -27,7 +27,7 @@ import static org.hamcrest.CoreMatchers.*;
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
 @RunWith(AndroidJUnit4.class)
-public class ExampleInstrumentedTest {
+public class ImageRecognitionTest {
 
     Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
     static final String TAG = "UnitTest";
@@ -234,11 +234,11 @@ public class ExampleInstrumentedTest {
 
         assertThat(p.first, is(p.second));
     }
-
-    @Test
-    public void useAppContext() {
-        // Context of the app under test.
-        assertEquals("com.example.sudokucv", appContext.getPackageName());
-    }
+//
+//    @Test
+//    public void useAppContext() {
+//        // Context of the app under test.
+//        assertEquals("com.example.sudokucv", appContext.getPackageName());
+//    }
 
 }

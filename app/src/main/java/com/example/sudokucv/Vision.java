@@ -455,6 +455,7 @@ public class Vision {
 
         int count = 0;
         Scalar alternate = red;
+
         for (List<MatOfPoint> row_of_contours : sortedSquares) {
             for (MatOfPoint contour : row_of_contours) {
 
@@ -470,7 +471,30 @@ public class Vision {
                 //Mat cro = filledBoxes.submat(ROI);
                 //Mat cro = whiteOut.submat(ro);
 
-                boxes.add(crop);
+                // #####################################
+                // Find which have number
+
+                //Core.subtract(blankWrappedSize, crop, crop);
+
+                // Find all contours
+                contents.clear(); // Clear old contours, ie. containing border
+                Imgproc.findContours(crop, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+                //Core.subtract(blankWrappedSize, crop, crop);
+
+
+                // Find largest contour
+                boolean hasNum = false;
+                for (MatOfPoint con : contents) {
+                    if (Imgproc.contourArea(con) < 10050 && Imgproc.contourArea(con) > 700) {
+                        boxes.add(crop);
+                        hasNum = true;
+                        break;
+                    }
+                }
+
+                // #####################################
+                if (!hasNum) boxes.add(null);
                 //boxes.add(cro);
                 //boxes.add(imgLabel(boxBorder.clone(), Integer.toString(count)));
                 //count ++;
@@ -610,8 +634,11 @@ public class Vision {
     }
 
     public String readText(Bitmap bitmap) {
+        long startTime = System.currentTimeMillis();
         baseApi.setImage(bitmap);
+        printTime(startTime, System.currentTimeMillis(), "Post setImage", true);
         String text = baseApi.getUTF8Text();
+        printTime(startTime, System.currentTimeMillis(), "Post read", true);
         //baseApi.end();
         return text;
     }

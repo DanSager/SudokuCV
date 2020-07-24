@@ -278,6 +278,10 @@ public class MainActivity extends AppCompatActivity {
 
             int i = 0;
             for (Mat numImg : numImgs) {
+                if (numImg == null) {
+                    array[i] = "0";
+                    continue;
+                }
                 Bitmap b = v.getBitMap(numImg);
 
                 String output = v.readText(b);
@@ -323,6 +327,10 @@ public class MainActivity extends AppCompatActivity {
 
                 int j = 0;
                 for (Mat image : results) {
+                    if (image == null) {
+                        array.add("0");
+                        continue;
+                    }
                     Bitmap b = v.getBitMap(image);
                     updateImageView(b);
 

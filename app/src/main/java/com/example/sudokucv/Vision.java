@@ -386,7 +386,7 @@ public class Vision {
             Imgproc.Canny(imageInverted, cannyEdges, 40, 60);
             //steps.add(imgLabel(cannyEdges, "canny"));
             Mat lines = new Mat();
-            Imgproc.HoughLines(cannyEdges, lines, 1, Math.PI / 180, 200);
+            Imgproc.HoughLines(cannyEdges, lines, .5, Math.PI / 180, 150);
 
             Mat houghLines = new Mat();
             Imgproc.cvtColor(cannyEdges, houghLines, Imgproc.COLOR_GRAY2BGR);
@@ -405,6 +405,7 @@ public class Vision {
             //steps.add(imgLabel(houghLines, "hough"));
             //steps.add(imgLabel(image, "after hough"));
 
+            Bitmap temp = getBitMap(image);
 
             // Fix horizontal and vertical lines2
             sv = new Size(1, 7);
@@ -415,6 +416,8 @@ public class Vision {
             Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width / 2, horizontal_kernel.size().height / 2), 11);
 
             //steps.add(imgLabel(image, "post fix Vert and hor"));
+
+            Bitmap temp2 = getBitMap(image);
 
             Core.subtract(blankWrappedSize, image, image);
             Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
@@ -470,16 +473,17 @@ public class Vision {
             }
         }
 
+        int index = 0;
         for (List<MatOfPoint> row_of_contours : sortedSquares) {
             for (MatOfPoint contour : row_of_contours) {
 
                 Rect ROI = Imgproc.boundingRect(contour);
+                //ROI.width = ROI.width - 5;
                 Mat crop = whiteOut.submat(ROI);
 
                 // Find all contours
                 contents.clear(); // Clear old contours, ie. containing border
                 Imgproc.findContours(crop, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-
 
                 boolean hasNum = false;
                 for (MatOfPoint con : contents) {
@@ -490,7 +494,14 @@ public class Vision {
                     }
                 }
 
+                if (index == 12) {
+                    Log.i(TAG,"Stop");
+                }
+                Bitmap bmp = getBitMap(crop);
+
+
                 if (!hasNum) boxes.add(null);
+                index++;
             }
 
         }

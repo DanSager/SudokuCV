@@ -12,7 +12,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import org.opencv.core.Point;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class PreviewActivity extends AppCompatActivity {

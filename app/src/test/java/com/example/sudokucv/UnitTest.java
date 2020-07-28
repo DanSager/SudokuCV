@@ -21,7 +21,7 @@ import org.junit.runner.RunWith;
  * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
  */
 
-public class ExampleUnitTest {
+public class UnitTest {
 
 
     @Test

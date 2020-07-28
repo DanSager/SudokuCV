@@ -10,17 +10,12 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
-import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Parcelable;
 import android.os.StrictMode;
-import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
@@ -52,10 +47,21 @@ public class MainActivity extends AppCompatActivity {
     ArrayList<Mat> steps = new ArrayList<>();
     private int stepsIterator = 0;
     private static final int REQUEST_IMAGE_CAPTURE = 101;
+    private static final int CAMERA_REQUEST_CODE = 102;
 
     ImageView imageView;
     Uri image;
     String mCameraFileName;
+
+    /*
+    *   TODO:
+    *       Update camera usage so a new picture isn't stored
+    *       Crop camera to be 1:1
+    *       Optimize code in main activity
+    *       Print when image can not be read
+    *       Improve visuals
+    *
+     */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,34 +92,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void takePicture(View view) {
-        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
-        StrictMode.setVmPolicy(builder.build());
-        Intent intent = new Intent();
-        intent.setAction(MediaStore.ACTION_IMAGE_CAPTURE);
+        Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(camera, CAMERA_REQUEST_CODE);
 
-        Date date = new Date();
-        DateFormat df = new SimpleDateFormat("-mm-ss");
 
-        String newPicFile = df.format(date) + ".jpg";
-        String outPath = "/sdcard/" + newPicFile;
-        File outFile = new File(outPath);
-
-        mCameraFileName = outFile.toString();
-        Uri outuri = Uri.fromFile(outFile);
-        intent.putExtra(MediaStore.EXTRA_OUTPUT, outuri);
-        startActivityForResult(intent, 2);
+//        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+//        StrictMode.setVmPolicy(builder.build());
+//        Intent intent = new Intent();
+//        intent.setAction(MediaStore.ACTION_IMAGE_CAPTURE);
+//
+//        Date date = new Date();
+//        DateFormat df = new SimpleDateFormat("-mm-ss");
+//
+//        String newPicFile = df.format(date) + ".jpg";
+//        String outPath = "/sdcard/" + newPicFile;
+//        File outFile = new File(outPath);
+//
+//        mCameraFileName = outFile.toString();
+//        Uri outuri = Uri.fromFile(outFile);
+//        intent.putExtra(MediaStore.EXTRA_OUTPUT, outuri);
+//        startActivityForResult(intent, 2);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == Activity.RESULT_OK) {
-            if (requestCode == 2) {
+            if (requestCode == CAMERA_REQUEST_CODE) {
                 imageView = findViewById(R.id.img);
                 if (data != null) {
                     image = data.getData();
                     imageView.setImageURI(image);
                     imageView.setVisibility(View.VISIBLE);
+                    Bitmap 
 
 
                     try {

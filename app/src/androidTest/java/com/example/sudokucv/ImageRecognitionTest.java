@@ -8,11 +8,9 @@ import android.util.Pair;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.opencv.core.Core;
 import org.opencv.core.Mat;
 
 import java.util.ArrayList;

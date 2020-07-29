@@ -155,358 +155,365 @@ public class Vision {
     }
 
     public ArrayList<Mat>[] isolateBoxes(Mat image) {
-        final boolean print = true;
-        final long startTime = System.currentTimeMillis();
+        try {
+            final boolean print = true;
+            final long startTime = System.currentTimeMillis();
 
-        // Lists
-        ArrayList<Mat> boxes = new ArrayList<>();
-        ArrayList<Mat> steps = new ArrayList<>();
+            // Lists
+            ArrayList<Mat> boxes = new ArrayList<>();
+            ArrayList<Mat> steps = new ArrayList<>();
 
-        List<MatOfPoint> contents = new ArrayList<>();
-        List<MatOfPoint> mostlySquares;
-        List<MatOfPoint> squares = new ArrayList<>();
-        List<MatOfPoint> numbers = new ArrayList<>();
-        //List<MatOfPoint> noise = new ArrayList<>();
-        List<List<MatOfPoint>> sortedSquares = new ArrayList<>();
-        List<MatOfPoint> row = new ArrayList<>();
+            List<MatOfPoint> contents = new ArrayList<>();
+            List<MatOfPoint> mostlySquares;
+            List<MatOfPoint> squares = new ArrayList<>();
+            List<MatOfPoint> numbers = new ArrayList<>();
+            //List<MatOfPoint> noise = new ArrayList<>();
+            List<List<MatOfPoint>> sortedSquares = new ArrayList<>();
+            List<MatOfPoint> row = new ArrayList<>();
 
-        // Contours
-        MatOfPoint largestContour = null;
+            // Contours
+            MatOfPoint largestContour = null;
 
-        // Colors
-        Scalar red = new Scalar(255, 0, 0);
-        Scalar green = new Scalar(0, 255, 0);
-        Scalar black = new Scalar(0, 0, 0);
-        Scalar white = new Scalar(255, 255, 255);
+            // Colors
+            Scalar red = new Scalar(255, 0, 0);
+            Scalar green = new Scalar(0, 255, 0);
+            Scalar black = new Scalar(0, 0, 0);
+            Scalar white = new Scalar(255, 255, 255);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post colors", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post colors", print);
 
-        // Make original colors, OpenCV uses BGR
-        Imgproc.cvtColor(image, image, Imgproc.COLOR_BGR2RGB);
+            // Make original colors, OpenCV uses BGR
+            Imgproc.cvtColor(image, image, Imgproc.COLOR_BGR2RGB);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post cvtColor", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post cvtColor", print);
 
-        // Resize image so contours are on average the same size regardless of pic
-        Size s = new Size(2000, 2000);
-        Imgproc.resize(image, image, s);
+            // Resize image so contours are on average the same size regardless of pic
+            Size s = new Size(2000, 2000);
+            Imgproc.resize(image, image, s);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post resize", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post resize", print);
 
-        // Clone
-        Mat original = image.clone();
-        //Mat puzzleBorder = image.clone();
+            // Clone
+            Mat original = image.clone();
+            //Mat puzzleBorder = image.clone();
 
-        //printTime(startTime, System.currentTimeMillis(), "Post clone", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post clone", print);
 
-        // Make grayscale
-        Imgproc.cvtColor(image, image, Imgproc.COLOR_RGB2GRAY);
-        //steps.add(imgLabel(image, "gray"));
+            // Make grayscale
+            Imgproc.cvtColor(image, image, Imgproc.COLOR_RGB2GRAY);
+            //steps.add(imgLabel(image, "gray"));
 
-        //printTime(startTime, System.currentTimeMillis(), "Post grayscale", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post grayscale", print);
 
-        // Erode
-        Imgproc.erode(image, image, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_CROSS, new Size(3,3)));
-        //steps.add(imgLabel(image, "erode"));
+            // Erode
+            Imgproc.erode(image, image, Imgproc.getStructuringElement(Imgproc.CV_SHAPE_CROSS, new Size(3, 3)));
+            //steps.add(imgLabel(image, "erode"));
 
-        //printTime(startTime, System.currentTimeMillis(), "Post erode", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post erode", print);
 
-        // adaptive threshold, make black or white and invert
-        Imgproc.adaptiveThreshold(image, image, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 57, 3);
-        //steps.add(imgLabel(image, "adaptive"));
+            // adaptive threshold, make black or white and invert
+            Imgproc.adaptiveThreshold(image, image, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 57, 3);
+            //steps.add(imgLabel(image, "adaptive"));
 
-        //printTime(startTime, System.currentTimeMillis(), "Post adaptiveThreshold", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post adaptiveThreshold", print);
 
-        // Find all contours
-        Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+            // Find all contours
+            Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
-        // Find largest contour
-        if (contents.size() > 0) largestContour = contents.get(0);
-        for (MatOfPoint contour : contents) {
-            if (Imgproc.contourArea(contour) > Imgproc.contourArea(largestContour))
-                largestContour = contour;
-        }
-
-        //printTime(startTime, System.currentTimeMillis(), "Post findllargestcontour", print);
-
-        // White out rest of image
-        Mat maskInsideContour = Mat.zeros(image.size(), CV_8U);
-        Imgproc.drawContours(maskInsideContour, Arrays.asList(largestContour), -1, white, -1);
-
-        //printTime(startTime, System.currentTimeMillis(), "Post whiteoutrestofimage", print);
-
-        // Draw red line around border (debugging purposes only)
-        //Imgproc.drawContours(puzzleBorder, Arrays.asList(largestContour), -1, red, 3);
-        //steps.add(imgLabel(puzzleBorder, "puzzle border"));
-
-        // To white
-        Mat maskedImage = new Mat(image.size(), CV_8UC3).setTo(white);
-        Mat blankOriginalSize = new Mat(image.size(), image.type(), white);
-
-        Core.subtract(blankOriginalSize, image, image);
-        image.copyTo(maskedImage, maskInsideContour);
-        image = maskedImage.clone();
-        Core.subtract(blankOriginalSize, image, image);
-
-        //printTime(startTime, System.currentTimeMillis(), "Post towhite", print);
-
-        // Stretch puzzle to fill image
-        RotatedRect box = Imgproc.minAreaRect(new MatOfPoint2f(largestContour.toArray())); // Rough box around puzzle
-        Point[] pts = new Point[4];
-        box.points(pts); // Copy the 4 corners of this box to array
-
-        pts = sortCorners(pts); // Sort so that bottom-right = 0, bottom-left = 1, top-left = 2, top-right = 3
-
-        //printTime(startTime, System.currentTimeMillis(), "Post sortcorners", print);
-
-        List<Point> corners = getCorners(pts, largestContour); // Find corners by finding the nearest points of the contour to the box
-        image = warp(image, corners.get(2), corners.get(3), corners.get(1), corners.get(0)); // Stretch puzzle to fill image
-        original = warp(original, corners.get(2), corners.get(3), corners.get(1), corners.get(0));
-        //image = warped.clone();
-
-        //printTime(startTime, System.currentTimeMillis(), "Post stretchpuzzle", print);
-
-        // Resize image so contours are on average the same size regardless of the pic
-        Imgproc.resize(image, image, s);
-        //Imgproc.resize(original, original, s);
-
-        //printTime(startTime, System.currentTimeMillis(), "Post resize", print);
-
-        //Mat noiseBorder = original.clone();
-        //steps.add(imgLabel(image, "After wrap & resize"));
-
-        // Filter out all noise
-        contents.clear();
-        Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-
-        //printTime(startTime, System.currentTimeMillis(), "Post findcontours-noise", print);
-
-        ListIterator<MatOfPoint> contentsItr = contents.listIterator();
-        while (contentsItr.hasNext()) {
-            MatOfPoint ctr = contentsItr.next();
-            if (Imgproc.contourArea(ctr) < 1000) {
-                Imgproc.drawContours(image, Arrays.asList(ctr), -1, black, -1);
-                contentsItr.remove();
+            // Find largest contour
+            if (contents.size() > 0) largestContour = contents.get(0);
+            for (MatOfPoint contour : contents) {
+                if (Imgproc.contourArea(contour) > Imgproc.contourArea(largestContour))
+                    largestContour = contour;
             }
-        }
 
-        //printTime(startTime, System.currentTimeMillis(), "Post filteroutallnoise", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post findllargestcontour", print);
 
-        // Smooth
-        Imgproc.medianBlur(image, image, 3);
+            // White out rest of image
+            Mat maskInsideContour = Mat.zeros(image.size(), CV_8U);
+            Imgproc.drawContours(maskInsideContour, Arrays.asList(largestContour), -1, white, -1);
 
-        // Closing - Effect uncertain
-        Mat kernel = Mat.ones(3,3, CvType.CV_32F);
-        Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, kernel);
+            //printTime(startTime, System.currentTimeMillis(), "Post whiteoutrestofimage", print);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post smooth and closing", print);
+            // Draw red line around border (debugging purposes only)
+            //Imgproc.drawContours(puzzleBorder, Arrays.asList(largestContour), -1, red, 3);
+            //steps.add(imgLabel(puzzleBorder, "puzzle border"));
 
-        // Make clones
-        Mat filledBoxes = image.clone(); // Holds squares with numbers and no noise
-        Mat whiteOut = new Mat(image.size(), CV_8UC3).setTo(white);
-        //Mat numberBorder = original.clone();
-        //Mat boxBorder = original.clone();
+            // To white
+            Mat maskedImage = new Mat(image.size(), CV_8UC3).setTo(white);
+            Mat blankOriginalSize = new Mat(image.size(), image.type(), white);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post clones", print);
+            Core.subtract(blankOriginalSize, image, image);
+            image.copyTo(maskedImage, maskInsideContour);
+            image = maskedImage.clone();
+            Core.subtract(blankOriginalSize, image, image);
 
-        // Find all boxes & numbers (as contours)
-        contents.clear(); // Clear old contours, ie. containing border
-        Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+            //printTime(startTime, System.currentTimeMillis(), "Post towhite", print);
 
-        //steps.add(imgLabel(whiteOut, "whiteout"));
-        //printTime(startTime, System.currentTimeMillis(), "Post findallboxesandnumbers", print);
+            // Stretch puzzle to fill image
+            RotatedRect box = Imgproc.minAreaRect(new MatOfPoint2f(largestContour.toArray())); // Rough box around puzzle
+            Point[] pts = new Point[4];
+            box.points(pts); // Copy the 4 corners of this box to array
 
-        // Remove numbers
-        for (MatOfPoint contour : contents) {
-            Double area = Imgproc.contourArea(contour);
-            if (area < 15000 && area > 1050) { // Number
-                Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
+            pts = sortCorners(pts); // Sort so that bottom-right = 0, bottom-left = 1, top-left = 2, top-right = 3
 
-                MatOfPoint2f m2f = new MatOfPoint2f(contour.toArray());
-                RotatedRect rr = Imgproc.minAreaRect(m2f);
-                Size sz = rr.size;
-                Double dou = sz.width / 4;
-                Double dou2 = sz.height / 4;
-                rr.size = new Size(sz.width +dou, sz.height+dou2);
+            //printTime(startTime, System.currentTimeMillis(), "Post sortcorners", print);
 
-                Mat mask = new Mat(filledBoxes.rows(), filledBoxes.cols(), CvType.CV_8U, Scalar.all(0));
-                Imgproc.ellipse(mask, rr, white, -1);
-                filledBoxes.copyTo(whiteOut, mask);
+            List<Point> corners = getCorners(pts, largestContour); // Find corners by finding the nearest points of the contour to the box
+            image = warp(image, corners.get(2), corners.get(3), corners.get(1), corners.get(0)); // Stretch puzzle to fill image
+            original = warp(original, corners.get(2), corners.get(3), corners.get(1), corners.get(0));
+            //image = warped.clone();
 
-                //Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, red, 2);
-                numbers.add(contour);
+            //printTime(startTime, System.currentTimeMillis(), "Post stretchpuzzle", print);
+
+            // Resize image so contours are on average the same size regardless of the pic
+            Imgproc.resize(image, image, s);
+            //Imgproc.resize(original, original, s);
+
+            //printTime(startTime, System.currentTimeMillis(), "Post resize", print);
+
+            //Mat noiseBorder = original.clone();
+            //steps.add(imgLabel(image, "After wrap & resize"));
+
+            // Filter out all noise
+            contents.clear();
+            Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+            //printTime(startTime, System.currentTimeMillis(), "Post findcontours-noise", print);
+
+            ListIterator<MatOfPoint> contentsItr = contents.listIterator();
+            while (contentsItr.hasNext()) {
+                MatOfPoint ctr = contentsItr.next();
+                if (Imgproc.contourArea(ctr) < 1000) {
+                    Imgproc.drawContours(image, Arrays.asList(ctr), -1, black, -1);
+                    contentsItr.remove();
+                }
             }
-        }
 
-        //printTime(startTime, System.currentTimeMillis(), "Post removenumbers", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post filteroutallnoise", print);
 
-        //steps.add(imgLabel(numberBorder, "Number border"));
-        //steps.add(imgLabel(whiteOut, "whiteout"));
-        //steps.add(imgLabel(image, "post remove nums"));
+            // Smooth
+            Imgproc.medianBlur(image, image, 3);
 
-        // Fix horizontal and vertical lines
-        Size sv = new Size(1, 7);
-        Mat vertical_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sv);
-        Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, vertical_kernel, new Point(vertical_kernel.size().width/2, vertical_kernel.size().height/2), 11);
-        Size sh = new Size(7, 1);
-        Mat horizontal_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sh);
-        Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width/2, horizontal_kernel.size().height/2), 11);
+            // Closing - Effect uncertain
+            Mat kernel = Mat.ones(3, 3, CvType.CV_32F);
+            Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, kernel);
 
-        //steps.add(imgLabel(image, "post fix Vert and hor"));
+            //printTime(startTime, System.currentTimeMillis(), "Post smooth and closing", print);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post fixhorizontalandverticlelines", print);
+            // Make clones
+            Mat filledBoxes = image.clone(); // Holds squares with numbers and no noise
+            Mat whiteOut = new Mat(image.size(), CV_8UC3).setTo(white);
+            //Mat numberBorder = original.clone();
+            //Mat boxBorder = original.clone();
 
-        // Invert image
-        Mat blankWrappedSize = new Mat(image.rows(),image.cols(), image.type(), new Scalar(255,255,255));
-        Core.subtract(blankWrappedSize, image, image);
-        Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
-        Core.subtract(blankWrappedSize, whiteOut, whiteOut);
+            //printTime(startTime, System.currentTimeMillis(), "Post clones", print);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post invertimage", print);
+            // Find all boxes & numbers (as contours)
+            contents.clear(); // Clear old contours, ie. containing border
+            Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
-        // Find the squares
-        contents.clear();
-        Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+            //steps.add(imgLabel(whiteOut, "whiteout"));
+            //printTime(startTime, System.currentTimeMillis(), "Post findallboxesandnumbers", print);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post findsquares", print);
+            // Remove numbers
+            for (MatOfPoint contour : contents) {
+                Double area = Imgproc.contourArea(contour);
+                if (area < 15000 && area > 1050) { // Number
+                    Imgproc.drawContours(image, Arrays.asList(contour), -1, black, -1);
 
-        for (MatOfPoint contour : contents) if (Imgproc.contourArea(contour) > 20000) squares.add(contour);
+                    MatOfPoint2f m2f = new MatOfPoint2f(contour.toArray());
+                    RotatedRect rr = Imgproc.minAreaRect(m2f);
+                    Size sz = rr.size;
+                    Double dou = sz.width / 4;
+                    Double dou2 = sz.height / 4;
+                    rr.size = new Size(sz.width + dou, sz.height + dou2);
 
-        //printTime(startTime, System.currentTimeMillis(), "Post addsquarecontours", print);
+                    Mat mask = new Mat(filledBoxes.rows(), filledBoxes.cols(), CvType.CV_8U, Scalar.all(0));
+                    Imgproc.ellipse(mask, rr, white, -1);
+                    filledBoxes.copyTo(whiteOut, mask);
 
-        if (squares.size() != 81) {
-
-            Core.subtract(blankWrappedSize, image, image);
-            Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
-            Core.subtract(blankWrappedSize, whiteOut, whiteOut);
-
-            Mat imageInverted = image.clone();
-            Mat blankWrappedSize2 = new Mat(image.rows(), image.cols(), image.type(), new Scalar(255, 255, 255));
-            Core.subtract(blankWrappedSize2, imageInverted, imageInverted);
-            Mat cannyEdges = new Mat();
-            Imgproc.Canny(imageInverted, cannyEdges, 40, 60);
-            //steps.add(imgLabel(cannyEdges, "canny"));
-            Mat lines = new Mat();
-            Imgproc.HoughLines(cannyEdges, lines, .5, Math.PI / 180, 150);
-
-            Mat houghLines = new Mat();
-            Imgproc.cvtColor(cannyEdges, houghLines, Imgproc.COLOR_GRAY2BGR);
-
-            for (int x = 0; x < lines.rows(); x++) {
-                double rho = lines.get(x, 0)[0],
-                        theta = lines.get(x, 0)[1];
-
-                double a = Math.cos(theta), b = Math.sin(theta);
-                double x0 = a * rho, y0 = b * rho;
-                Point pt1 = new Point(Math.round(x0 + 2000 * (-b)), Math.round(y0 + 2000 * (a)));
-                Point pt2 = new Point(Math.round(x0 - 2000 * (-b)), Math.round(y0 - 2000 * (a)));
-                Imgproc.line(houghLines, pt1, pt2, new Scalar(0, 0, 255), 3, Imgproc.LINE_AA, 0);
-                Imgproc.line(image, pt1, pt2, new Scalar(255, 255, 255), 3, Imgproc.LINE_AA, 0);
+                    //Imgproc.drawContours(numberBorder, Arrays.asList(contour), -1, red, 2);
+                    numbers.add(contour);
+                }
             }
-            //steps.add(imgLabel(houghLines, "hough"));
-            //steps.add(imgLabel(image, "after hough"));
 
-            // Fix horizontal and vertical lines2
-            sv = new Size(1, 7);
-            vertical_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sv);
+            //printTime(startTime, System.currentTimeMillis(), "Post removenumbers", print);
+
+            //steps.add(imgLabel(numberBorder, "Number border"));
+            //steps.add(imgLabel(whiteOut, "whiteout"));
+            //steps.add(imgLabel(image, "post remove nums"));
+
+            // Fix horizontal and vertical lines
+            Size sv = new Size(1, 7);
+            Mat vertical_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sv);
             Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, vertical_kernel, new Point(vertical_kernel.size().width / 2, vertical_kernel.size().height / 2), 11);
-            sh = new Size(7, 1);
-            horizontal_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sh);
+            Size sh = new Size(7, 1);
+            Mat horizontal_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sh);
             Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width / 2, horizontal_kernel.size().height / 2), 11);
 
             //steps.add(imgLabel(image, "post fix Vert and hor"));
 
+            //printTime(startTime, System.currentTimeMillis(), "Post fixhorizontalandverticlelines", print);
+
+            // Invert image
+            Mat blankWrappedSize = new Mat(image.rows(), image.cols(), image.type(), new Scalar(255, 255, 255));
             Core.subtract(blankWrappedSize, image, image);
             Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
             Core.subtract(blankWrappedSize, whiteOut, whiteOut);
 
-            //steps.add(imgLabel(image, "post invert"));
+            //printTime(startTime, System.currentTimeMillis(), "Post invertimage", print);
 
             // Find the squares
-            mostlySquares = new ArrayList<>();
-            squares = new ArrayList<>();
-            Imgproc.findContours(image, mostlySquares, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+            contents.clear();
+            Imgproc.findContours(image, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
-            for (MatOfPoint contour : mostlySquares) if (Imgproc.contourArea(contour) > 20000) squares.add(contour);
+            //printTime(startTime, System.currentTimeMillis(), "Post findsquares", print);
+
+            for (MatOfPoint contour : contents)
+                if (Imgproc.contourArea(contour) > 20000) squares.add(contour);
+
+            //printTime(startTime, System.currentTimeMillis(), "Post addsquarecontours", print);
 
             if (squares.size() != 81) {
-                int currentLine = getLineNumber();
-                Log.e(TAG, currentLine + " " + "Number of squares != 81");
-                //return boxes;
+
+                Core.subtract(blankWrappedSize, image, image);
+                Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
+                Core.subtract(blankWrappedSize, whiteOut, whiteOut);
+
+                Mat imageInverted = image.clone();
+                Mat blankWrappedSize2 = new Mat(image.rows(), image.cols(), image.type(), new Scalar(255, 255, 255));
+                Core.subtract(blankWrappedSize2, imageInverted, imageInverted);
+                Mat cannyEdges = new Mat();
+                Imgproc.Canny(imageInverted, cannyEdges, 40, 60);
+                //steps.add(imgLabel(cannyEdges, "canny"));
+                Mat lines = new Mat();
+                Imgproc.HoughLines(cannyEdges, lines, .5, Math.PI / 180, 150);
+
+                Mat houghLines = new Mat();
+                Imgproc.cvtColor(cannyEdges, houghLines, Imgproc.COLOR_GRAY2BGR);
+
+                for (int x = 0; x < lines.rows(); x++) {
+                    double rho = lines.get(x, 0)[0],
+                            theta = lines.get(x, 0)[1];
+
+                    double a = Math.cos(theta), b = Math.sin(theta);
+                    double x0 = a * rho, y0 = b * rho;
+                    Point pt1 = new Point(Math.round(x0 + 2000 * (-b)), Math.round(y0 + 2000 * (a)));
+                    Point pt2 = new Point(Math.round(x0 - 2000 * (-b)), Math.round(y0 - 2000 * (a)));
+                    Imgproc.line(houghLines, pt1, pt2, new Scalar(0, 0, 255), 3, Imgproc.LINE_AA, 0);
+                    Imgproc.line(image, pt1, pt2, new Scalar(255, 255, 255), 3, Imgproc.LINE_AA, 0);
+                }
+                //steps.add(imgLabel(houghLines, "hough"));
+                //steps.add(imgLabel(image, "after hough"));
+
+                // Fix horizontal and vertical lines2
+                sv = new Size(1, 7);
+                vertical_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sv);
+                Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, vertical_kernel, new Point(vertical_kernel.size().width / 2, vertical_kernel.size().height / 2), 11);
+                sh = new Size(7, 1);
+                horizontal_kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, sh);
+                Imgproc.morphologyEx(image, image, Imgproc.MORPH_CLOSE, horizontal_kernel, new Point(horizontal_kernel.size().width / 2, horizontal_kernel.size().height / 2), 11);
+
+                //steps.add(imgLabel(image, "post fix Vert and hor"));
+
+                Core.subtract(blankWrappedSize, image, image);
+                Core.subtract(blankWrappedSize, filledBoxes, filledBoxes);
+                Core.subtract(blankWrappedSize, whiteOut, whiteOut);
+
+                //steps.add(imgLabel(image, "post invert"));
+
+                // Find the squares
+                mostlySquares = new ArrayList<>();
+                squares = new ArrayList<>();
+                Imgproc.findContours(image, mostlySquares, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+                for (MatOfPoint contour : mostlySquares)
+                    if (Imgproc.contourArea(contour) > 20000) squares.add(contour);
+
+                if (squares.size() != 81) {
+                    int currentLine = getLineNumber();
+                    Log.e(TAG, currentLine + " " + "Number of squares != 81");
+                    //return boxes;
+                }
             }
-        }
 
-        //printTime(startTime, System.currentTimeMillis(), "Post !=81", print);
+            //printTime(startTime, System.currentTimeMillis(), "Post !=81", print);
 
-        //sort by y coordinates using the topleft point of every contour's bounding box
-        Collections.sort(squares, new Comparator<MatOfPoint>() {
-            @Override
-            public int compare(MatOfPoint o1, MatOfPoint o2) {
-                Rect rect1 = Imgproc.boundingRect(o1);
-                Rect rect2 = Imgproc.boundingRect(o2);
-                int result = Double.compare(rect1.tl().y, rect2.tl().y);
-                return result;
+            //sort by y coordinates using the topleft point of every contour's bounding box
+            Collections.sort(squares, new Comparator<MatOfPoint>() {
+                @Override
+                public int compare(MatOfPoint o1, MatOfPoint o2) {
+                    Rect rect1 = Imgproc.boundingRect(o1);
+                    Rect rect2 = Imgproc.boundingRect(o2);
+                    int result = Double.compare(rect1.tl().y, rect2.tl().y);
+                    return result;
+                }
+            });
+
+            //printTime(startTime, System.currentTimeMillis(), "Post sortby", print);
+
+            int i = 0;
+            for (MatOfPoint contour : squares) {
+                row.add(contour);
+                i++;
+                if (i % 9 == 0) {
+                    //sort by x coordinates
+                    Collections.sort(row, new Comparator<MatOfPoint>() {
+                        @Override
+                        public int compare(MatOfPoint o1, MatOfPoint o2) {
+                            Rect rect1 = Imgproc.boundingRect(o1);
+                            Rect rect2 = Imgproc.boundingRect(o2);
+                            return Double.compare(rect1.tl().x, rect2.tl().x);
+                        }
+                    });
+                    sortedSquares.add(row);
+                    row = new ArrayList<>();
+                }
             }
-        } );
 
-        //printTime(startTime, System.currentTimeMillis(), "Post sortby", print);
+            int index = 0;
+            for (List<MatOfPoint> row_of_contours : sortedSquares) {
+                for (MatOfPoint contour : row_of_contours) {
 
-        int i = 0;
-        for (MatOfPoint contour : squares) {
-            row.add(contour);
-            i++;
-            if (i % 9 == 0) {
-                //sort by x coordinates
-                Collections.sort(row, new Comparator<MatOfPoint>() {
-                    @Override
-                    public int compare(MatOfPoint o1, MatOfPoint o2) {
-                        Rect rect1 = Imgproc.boundingRect(o1);
-                        Rect rect2 = Imgproc.boundingRect(o2);
-                        return Double.compare(rect1.tl().x, rect2.tl().x);
+                    Rect ROI = Imgproc.boundingRect(contour);
+                    //ROI.width = ROI.width - 5;
+                    Mat crop = whiteOut.submat(ROI);
+
+                    // Find all contours
+                    contents.clear(); // Clear old contours, ie. containing border
+                    Imgproc.findContours(crop, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+                    boolean hasNum = false;
+                    for (MatOfPoint con : contents) {
+                        if (Imgproc.contourArea(con) < 10050 && Imgproc.contourArea(con) > 700) {
+                            boxes.add(crop);
+                            hasNum = true;
+                            break;
+                        }
                     }
-                });
-                sortedSquares.add(row);
-                row = new ArrayList<>();
-            }
-        }
 
-        int index = 0;
-        for (List<MatOfPoint> row_of_contours : sortedSquares) {
-            for (MatOfPoint contour : row_of_contours) {
-
-                Rect ROI = Imgproc.boundingRect(contour);
-                //ROI.width = ROI.width - 5;
-                Mat crop = whiteOut.submat(ROI);
-
-                // Find all contours
-                contents.clear(); // Clear old contours, ie. containing border
-                Imgproc.findContours(crop, contents, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-
-                boolean hasNum = false;
-                for (MatOfPoint con : contents) {
-                    if (Imgproc.contourArea(con) < 10050 && Imgproc.contourArea(con) > 700) {
-                        boxes.add(crop);
-                        hasNum = true;
-                        break;
+                    if (index == 12) {
+                        Log.i(TAG, "Stop");
                     }
+
+                    if (!hasNum) boxes.add(null);
+                    index++;
                 }
 
-                if (index == 12) {
-                    Log.i(TAG,"Stop");
-                }
-
-                if (!hasNum) boxes.add(null);
-                index++;
             }
 
+            ArrayList<Mat>[] a = new ArrayList[2];
+            a[0] = boxes;
+            a[1] = steps;
+
+            printTime(startTime, System.currentTimeMillis(), "Post everything", print);
+
+            return a;
+        } catch (Exception e) {
+            Log.e(TAG, "Error in isolateBoxes: " + e.getMessage());
         }
-
-        ArrayList<Mat>[] a = new ArrayList[2];
-        a[0] = boxes;
-        a[1] = steps;
-
-        printTime(startTime, System.currentTimeMillis(), "Post everything", print);
-
-        return a;
+        return null;
     }
 
     private void printTime(long startTime, long currentTime, String msg, final boolean print) {

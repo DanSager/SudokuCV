@@ -58,11 +58,12 @@ public class MainActivity extends AppCompatActivity {
 
     /*
     *   TODO:
-    *       Update camera usage so a new picture isn't stored
+    *       X Update camera usage so a new picture isn't stored
     *       Crop camera to be 1:1
     *       Optimize code in main activity
     *       Print when image can not be read
     *       Improve visuals
+    *       Fix isolateBoxes algorithm so there aren't any necessary exception points
     *
      */
 
@@ -104,24 +105,6 @@ public class MainActivity extends AppCompatActivity {
         Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         camera.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
         startActivityForResult(camera, CAMERA_REQUEST_CODE);
-
-
-//        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
-//        StrictMode.setVmPolicy(builder.build());
-//        Intent intent = new Intent();
-//        intent.setAction(MediaStore.ACTION_IMAGE_CAPTURE);
-//
-//        Date date = new Date();
-//        DateFormat df = new SimpleDateFormat("-mm-ss");
-//
-//        String newPicFile = df.format(date) + ".jpg";
-//        String outPath = "/sdcard/" + newPicFile;
-//        File outFile = new File(outPath);
-//
-//        mCameraFileName = outFile.toString();
-//        Uri outuri = Uri.fromFile(outFile);
-//        intent.putExtra(MediaStore.EXTRA_OUTPUT, outuri);
-//        startActivityForResult(intent, 2);
     }
 
     public String getRealPathFromURI(Uri contentUri) {
@@ -136,7 +119,6 @@ public class MainActivity extends AppCompatActivity {
         try {
             ExifInterface ei = new ExifInterface(imgUrl);
             int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-            Log.d("EXIF", "Exif: " + orientation);
             Matrix matrix = new Matrix();
             if (orientation == 6) {
                 matrix.postRotate(90);
@@ -149,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
             }
             bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), matrix, true); // rotating bitmap
         } catch (IOException e) {
-            Log.e(TAG, "Error: " + e.getMessage());
+            Log.e(TAG, "Error in rotateBitmap: " + e.getMessage());
             Toast.makeText(getApplicationContext(), "Error at reading image rotation", Toast.LENGTH_SHORT).show();
         }
         return bmp;
@@ -167,36 +149,39 @@ public class MainActivity extends AppCompatActivity {
                     // Attempt to load image we just took
                     bmp = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
                 } catch (IOException e) {
-                    Log.e(TAG, "Error: " + e.getMessage());
+                    Log.e(TAG, "Error in onActivityResult1: " + e.getMessage());
                     Toast.makeText(getApplicationContext(), "Error at reading image", Toast.LENGTH_SHORT).show();
                 }
 
-                if (bmp != null) {
-                    // Rotate image
-                    String imageUrl = getRealPathFromURI(imageUri);
-                    bmp = rotateBitmap(imageUrl, bmp);
+                try {
 
-//                    // Delete the new image from storage
-//                    File fdelete = new File(imageUrl);
-//                    if (fdelete.exists()) {
-//                        if (fdelete.delete()) {
-//                            Toast.makeText(getApplicationContext(), "Deleted picture at: " + imageUrl, Toast.LENGTH_SHORT).show();
-//                        }
-//                    }
+                    if (bmp != null) {
+                        // Rotate image
+                        String imageUrl = getRealPathFromURI(imageUri);
+                        bmp = rotateBitmap(imageUrl, bmp);
 
-                    // Update the image view to contain the image
-                    imageView = findViewById(R.id.img);
-                    imageView.setImageBitmap(bmp);
-                    imageView.setVisibility(View.VISIBLE);
+                        // Delete the new image from storage
+                        File fdelete = new File(imageUrl);
+                        if (fdelete.exists())
+                            if (fdelete.delete())
+                                Log.i(TAG, "Deleted image at " + imageUrl);
 
-                    // Convert bitmap to Mat
-                    Mat m = Vision.getMat(bmp);
+                        // Update the image view to contain the image
+                        imageView = findViewById(R.id.img);
+                        imageView.setImageBitmap(bmp);
+                        imageView.setVisibility(View.VISIBLE);
 
-                    // Process image / Continue execution
-                    ProcessImage pi = new ProcessImage(m);
-                    pi.start();
-                } else {
-                    // Image is null. Return to previous state
+                        // Convert bitmap to Mat
+                        Mat m = Vision.getMat(bmp);
+
+                        // Process image / Continue execution
+                        ProcessImage pi = new ProcessImage(m);
+                        pi.start();
+                    } else {
+                        // Image is null. Return to previous state
+                    }
+                } catch (Exception e) {
+                    Log.i(TAG,  "Error in onActivityResult2: " + e.getMessage());
                 }
             }
         }
@@ -273,17 +258,21 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void run() {
-            // Process
-            String[] sudokuDefaults = processImage(mat);
-            if (sudokuDefaults == null) {
-                toast("Could not properly read the sudoku, try again");
-                return;
-            } else {
-                Button start = (Button) findViewById(R.id.start);
-                start.setVisibility(View.VISIBLE);
-            }
+            try {
+                // Process
+                String[] sudokuDefaults = processImage(mat);
+                if (sudokuDefaults == null) {
+                    toast("Could not properly read the sudoku, try again");
+                    return;
+                } else {
+                    Button start = (Button) findViewById(R.id.start);
+                    start.setVisibility(View.VISIBLE);
+                }
 
-            values = sudokuDefaults;
+                values = sudokuDefaults;
+            } catch (Exception e) {
+                Log.e(TAG, "Error in run: " + e.getMessage());
+            }
         }
 
         private String[] processImage (Mat img) {
@@ -291,6 +280,8 @@ public class MainActivity extends AppCompatActivity {
             Vision v = new Vision();
 
             ArrayList<Mat>[] boxes = v.isolateBoxes(img);
+
+            if (boxes == null) return null;
 
             if (boxes[0].size() == 0) {
                 // Couldn't read the sudoku board correctly

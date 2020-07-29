@@ -7,8 +7,11 @@ import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
@@ -19,6 +22,7 @@ import android.os.StrictMode;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -33,10 +37,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -48,9 +49,11 @@ public class MainActivity extends AppCompatActivity {
     private int stepsIterator = 0;
     private static final int REQUEST_IMAGE_CAPTURE = 101;
     private static final int CAMERA_REQUEST_CODE = 102;
+    Context c;
 
     ImageView imageView;
-    Uri image;
+    Uri imageUri;
+    ContentValues cntVals;
     String mCameraFileName;
 
     /*
@@ -70,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Set up permissions and ocr
         checkPermission();
+        c = getApplicationContext();
 //        Vision v = new Vision();
 //        v.create(getBaseContext());
 
@@ -92,7 +96,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void takePicture(View view) {
+        cntVals = new ContentValues();
+        cntVals.put(MediaStore.Images.Media.TITLE, "New Picture");
+        cntVals.put(MediaStore.Images.Media.DESCRIPTION, "From your camera");
+        imageUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cntVals);
+
         Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        camera.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
         startActivityForResult(camera, CAMERA_REQUEST_CODE);
 
 
@@ -114,83 +124,79 @@ public class MainActivity extends AppCompatActivity {
 //        startActivityForResult(intent, 2);
     }
 
+    public String getRealPathFromURI(Uri contentUri) {
+        String[] proj = { MediaStore.Images.Media.DATA };
+        Cursor cursor = managedQuery(contentUri, proj, null, null, null);
+        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        cursor.moveToFirst();
+        return cursor.getString(column_index);
+    }
+
+    private Bitmap rotateBitmap(String imgUrl, Bitmap bmp) {
+        try {
+            ExifInterface ei = new ExifInterface(imgUrl);
+            int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+            Log.d("EXIF", "Exif: " + orientation);
+            Matrix matrix = new Matrix();
+            if (orientation == 6) {
+                matrix.postRotate(90);
+            }
+            else if (orientation == 3) {
+                matrix.postRotate(180);
+            }
+            else if (orientation == 8) {
+                matrix.postRotate(270);
+            }
+            bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), matrix, true); // rotating bitmap
+        } catch (IOException e) {
+            Log.e(TAG, "Error: " + e.getMessage());
+            Toast.makeText(getApplicationContext(), "Error at reading image rotation", Toast.LENGTH_SHORT).show();
+        }
+        return bmp;
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        // Read values
         super.onActivityResult(requestCode, resultCode, data);
+
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == CAMERA_REQUEST_CODE) {
-                imageView = findViewById(R.id.img);
-                if (data != null) {
-                    image = data.getData();
-                    imageView.setImageURI(image);
-                    imageView.setVisibility(View.VISIBLE);
-                    Bitmap 
-
-
-                    try {
-                        Log.i(TAG, "here1");
-                        Vision v = new Vision();
-                        v.create(getBaseContext());
-
-                        // Handle Image
-                        Bitmap bmp;
-                        bmp = MediaStore.Images.Media.getBitmap(this.getContentResolver(),image);
-                        Mat mat = v.getMat(bmp);
-
-                        // Process image
-                        ProcessImage pi = new ProcessImage(v, mat);
-                        pi.start();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
+                Bitmap bmp = null;
+                try {
+                    // Attempt to load image we just took
+                    bmp = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
+                } catch (IOException e) {
+                    Log.e(TAG, "Error: " + e.getMessage());
+                    Toast.makeText(getApplicationContext(), "Error at reading image", Toast.LENGTH_SHORT).show();
                 }
-                if (image == null && mCameraFileName != null) {
-                    image = Uri.fromFile(new File(mCameraFileName));
-                    imageView.setImageURI(image);
+
+                if (bmp != null) {
+                    // Rotate image
+                    String imageUrl = getRealPathFromURI(imageUri);
+                    bmp = rotateBitmap(imageUrl, bmp);
+
+//                    // Delete the new image from storage
+//                    File fdelete = new File(imageUrl);
+//                    if (fdelete.exists()) {
+//                        if (fdelete.delete()) {
+//                            Toast.makeText(getApplicationContext(), "Deleted picture at: " + imageUrl, Toast.LENGTH_SHORT).show();
+//                        }
+//                    }
+
+                    // Update the image view to contain the image
+                    imageView = findViewById(R.id.img);
+                    imageView.setImageBitmap(bmp);
                     imageView.setVisibility(View.VISIBLE);
 
-                    try {
-                        Log.i(TAG, "here2");
-                        Vision v = new Vision();
-                        v.create(getBaseContext());
+                    // Convert bitmap to Mat
+                    Mat m = Vision.getMat(bmp);
 
-                        // Handle Image
-                        Bitmap myBitmap;
-                        myBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(),image);
-
-                        try {
-                            ExifInterface exif = new ExifInterface(mCameraFileName);
-                            int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, 1);
-                            Log.d("EXIF", "Exif: " + orientation);
-                            Matrix matrix = new Matrix();
-                            if (orientation == 6) {
-                                matrix.postRotate(90);
-                            }
-                            else if (orientation == 3) {
-                                matrix.postRotate(180);
-                            }
-                            else if (orientation == 8) {
-                                matrix.postRotate(270);
-                            }
-                            myBitmap = Bitmap.createBitmap(myBitmap, 0, 0, myBitmap.getWidth(), myBitmap.getHeight(), matrix, true); // rotating bitmap
-                        }
-                        catch (Exception e) {
-                            Log.e(TAG, e.getMessage());
-                        }
-
-                        Mat mat = v.getMat(myBitmap);
-
-                        // Process image
-                        ProcessImage pi = new ProcessImage(v, mat);
-                        pi.start();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-                File file = new File(mCameraFileName);
-                if (!file.exists()) {
-                    file.mkdir();
+                    // Process image / Continue execution
+                    ProcessImage pi = new ProcessImage(m);
+                    pi.start();
+                } else {
+                    // Image is null. Return to previous state
                 }
             }
         }
@@ -259,11 +265,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public class ProcessImage extends Thread {
-        Vision v;
         Mat mat;
 
-        ProcessImage(Vision vRef, Mat mRef) {
-            this.v = vRef;
+        ProcessImage(Mat mRef) {
             this.mat = mRef;
         }
 
@@ -272,7 +276,11 @@ public class MainActivity extends AppCompatActivity {
             // Process
             String[] sudokuDefaults = processImage(mat);
             if (sudokuDefaults == null) {
+                toast("Could not properly read the sudoku, try again");
                 return;
+            } else {
+                Button start = (Button) findViewById(R.id.start);
+                start.setVisibility(View.VISIBLE);
             }
 
             values = sudokuDefaults;
@@ -280,8 +288,15 @@ public class MainActivity extends AppCompatActivity {
 
         private String[] processImage (Mat img) {
             long startTime = System.currentTimeMillis();
+            Vision v = new Vision();
 
             ArrayList<Mat>[] boxes = v.isolateBoxes(img);
+
+            if (boxes[0].size() == 0) {
+                // Couldn't read the sudoku board correctly
+                return null;
+            }
+
             ArrayList<Mat> numImgs = boxes[0];
             steps = boxes[1];
 

@@ -607,7 +607,7 @@ public class Vision {
         return img_bitmap;
     }
 
-    public Mat getMat(Bitmap image) {
+    public static Mat getMat(Bitmap image) {
         Mat img_mat = new Mat(image.getWidth(), image.getHeight(), CvType.CV_8UC4);
         Utils.bitmapToMat(image, img_mat);
         return img_mat;

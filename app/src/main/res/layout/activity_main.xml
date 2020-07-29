@@ -10,12 +10,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Begin"
+        android:id="@+id/begin"
         android:onClick="takePicture" />
 
     <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="250dp"
-
+        android:layout_width="wrap_content"
+        android:layout_height="300dp"
+        android:layout_gravity="center_horizontal"
         android:id="@+id/img"
         android:adjustViewBounds="true"
         />
@@ -24,12 +25,16 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Start"
+        android:id="@+id/start"
+        android:visibility="invisible"
         android:onClick="start" />
 
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:onClick="debug"
+        android:id="@+id/debug"
+        android:visibility="invisible"
         android:text="Debug" />
 
 </LinearLayout>

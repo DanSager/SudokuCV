@@ -27,28 +27,28 @@ public class PreviewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_preview);
 
-        // Get array of input sudoku values
-        String[] values = null;
-        Bundle b = getIntent().getExtras();
-        if (b != null) {
-            values = b.getStringArray("values");
-        }
-
-        // Get sudoku template
-        template = BitmapFactory.decodeResource(getResources(), R.drawable.sudokutemplate);
-
-        // Fill template with default values
-        Vision v = new Vision();
-        points = v.findCenterPoints(template);
-        Bitmap defaults = v.writeInValues(template, values, points);
-        updateImageView(defaults);
-
-        // Retrieve the completed sudoku values
-        try {
-            solved = Sudoku.main(values);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+//        // Get array of input sudoku values
+//        String[] values = null;
+//        Bundle b = getIntent().getExtras();
+//        if (b != null) {
+//            values = b.getStringArray("values");
+//        }
+//
+//        // Get sudoku template
+//        template = BitmapFactory.decodeResource(getResources(), R.drawable.sudokutemplate);
+//
+//        // Fill template with default values
+//        Vision v = new Vision();
+//        points = v.findCenterPoints(template);
+//        Bitmap defaults = v.writeInValues(template, values, points);
+//        updateImageView(defaults);
+//
+//        // Retrieve the completed sudoku values
+//        try {
+//            solved = Sudoku.main(values);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
     }
 
     public void correct(View view) throws InterruptedException {
@@ -61,6 +61,10 @@ public class PreviewActivity extends AppCompatActivity {
         Vision v = new Vision();
         Bitmap completed = v.writeInValues(template, solved, points);
         updateImageView(completed);
+    }
+
+    public void incorrect(View view) throws InterruptedException {
+
     }
 
     private void updateImageView(Bitmap bm) {

@@ -752,7 +752,11 @@ public class Vision {
                 if (values[i].equals("0")) {
                     continue;
                 } else {
-                    Imgproc.putText(mat, values[i], points.get(i), Imgproc.FONT_HERSHEY_DUPLEX, 6, new Scalar(0, 0, 0), 6);
+                    try {
+                        Imgproc.putText(mat, values[i], points.get(i), Imgproc.FONT_HERSHEY_DUPLEX, 6, new Scalar(0, 0, 0), 6);
+                    } catch (Exception e) {
+                        Log.e(TAG, "writeInValues: " + e.getMessage());
+                    }
                 }
             }
         }

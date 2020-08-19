@@ -64,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
     *       Print when image can not be read
     *       Improve visuals
     *       Fix isolateBoxes algorithm so there aren't any necessary exception points
+    *       Add incorrect functionality
     *
      */
 
@@ -75,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
         // Set up permissions and ocr
         checkPermission();
         c = getApplicationContext();
+
 //        Vision v = new Vision();
 //        v.create(getBaseContext());
 
@@ -96,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
         //tests.start();
     }
 
-    public void takePicture(View view) {
+    public void takePicture(View view) { // onClick from begin
         cntVals = new ContentValues();
         cntVals.put(MediaStore.Images.Media.TITLE, "New Picture");
         cntVals.put(MediaStore.Images.Media.DESCRIPTION, "From your camera");
@@ -175,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
                         Mat m = Vision.getMat(bmp);
 
                         // Process image / Continue execution
+                        Toast.makeText(getApplicationContext(), "Begin processing image", Toast.LENGTH_SHORT).show();
                         ProcessImage pi = new ProcessImage(m);
                         pi.start();
                     } else {
@@ -187,7 +190,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void start(View view) {
+    public void start(View view) { // onClick from start
         // Open preview screen
         if (values == null) {
             Toast.makeText(getApplicationContext(), "Try again, null", Toast.LENGTH_SHORT).show();
@@ -244,6 +247,16 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void makeVisible(){
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                Button start = (Button) findViewById(R.id.start);
+                start.setVisibility(View.VISIBLE);
+            }
+        });
+    }
+
     private Triplet<Mat, List<String>, String> loadImage(Vision v) {
         ArrayList<Triplet<Mat, List<String>, String>> images = v.getImages(0);
         return images.get(0);
@@ -265,8 +278,9 @@ public class MainActivity extends AppCompatActivity {
                     toast("Could not properly read the sudoku, try again");
                     return;
                 } else {
-                    Button start = (Button) findViewById(R.id.start);
-                    start.setVisibility(View.VISIBLE);
+//                    Button start = (Button) findViewById(R.id.start);
+//                    start.setVisibility(View.VISIBLE);
+                    makeVisible();
                 }
 
                 values = sudokuDefaults;
@@ -278,6 +292,7 @@ public class MainActivity extends AppCompatActivity {
         private String[] processImage (Mat img) {
             long startTime = System.currentTimeMillis();
             Vision v = new Vision();
+            v.create(getApplicationContext());
 
             ArrayList<Mat>[] boxes = v.isolateBoxes(img);
 
@@ -296,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
             int i = 0;
             for (Mat numImg : numImgs) {
                 if (numImg == null) {
-                    array[i] = "0";
+                    array[i++] = "0";
                     continue;
                 }
                 Bitmap b = v.getBitMap(numImg);
@@ -305,8 +320,7 @@ public class MainActivity extends AppCompatActivity {
                 if (output.equals("") || output.equals("."))
                     output = "0";
 
-                array[i] = output;
-                i++;
+                array[i++] = output;
             }
 
             long endTime = System.currentTimeMillis();
@@ -315,6 +329,8 @@ public class MainActivity extends AppCompatActivity {
                 toast("Ready");
                 Log.i(TAG, "Processed image. Duration: " + duration + "ms");
                 return array;
+            } else {
+                toast("unable to successfully process image, array length equals " + array.length);
             }
             return null;
         }
